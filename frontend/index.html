@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SmartSpend - Expense Tracker</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<h2>SmartSpend - Add Expense</h2>
+
+<form id="expenseForm">
+    <input type="text" id="title" placeholder="Expense Title" required>
+    <input type="number" id="amount" placeholder="Amount" required>
+    
+    <select id="category">
+        <option>Food</option>
+        <option>Travel</option>
+        <option>Shopping</option>
+        <option>Others</option>
+    </select>
+
+    <input type="date" id="date" required>
+
+    <button type="submit">Add Expense</button>
+</form>
+
+<script src="script.js"></script>
+</body>
+</html>
