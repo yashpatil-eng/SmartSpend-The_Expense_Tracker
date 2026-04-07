@@ -2,7 +2,7 @@ const AuthToast = ({ toast, onClose }) => {
   if (!toast?.message) return null;
 
   return (
-    <div className={`mb-3 rounded-lg px-3 py-2 text-sm ${toast.type === "error" ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"}`}>
+    <div className={`mb-3 rounded-xl border px-3 py-2 text-sm ${toast.type === "error" ? "border-zinc-700 bg-zinc-900 text-white" : "border-zinc-700 bg-zinc-800 text-white"}`}>
       <div className="flex items-center justify-between gap-3">
         <p>{toast.message}</p>
         <button type="button" onClick={onClose} className="text-xs opacity-80 hover:opacity-100">

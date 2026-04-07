@@ -31,3 +31,4 @@ Backend: `http://localhost:5000`
 - Expense CRUD with filters
 - Smart dashboard (cards + pie chart + line chart)
 - Personalized AI insights and mini monthly calculator
+

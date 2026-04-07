@@ -103,7 +103,7 @@ const RegisterPage = () => {
   };
 
   return (
-    <div className="mx-auto mt-10 max-w-md rounded-xl border bg-white p-6">
+    <div className="surface-card mx-auto mt-10 max-w-md p-6">
       <h1 className="mb-4 text-2xl font-bold">Create Account</h1>
       <AuthToast toast={toast} onClose={() => setToast({ type: "", message: "" })} />
       <RoleSelector role={role} onChange={setRole} />
@@ -112,15 +112,15 @@ const RegisterPage = () => {
         <AuthOptionButton label="Continue with Mobile Number" icon={<Smartphone size={16} />} active={method === "mobile"} onClick={() => setMethod("mobile")} />
         <AuthOptionButton label="Continue with Email" icon={<Mail size={16} />} active={method === "email"} onClick={() => setMethod("email")} />
       </div>
-      <div className="my-4 flex items-center gap-3 text-xs text-slate-500">
-        <span className="h-px flex-1 bg-slate-200" />
+      <div className="my-4 flex items-center gap-3 text-xs text-gray-400">
+        <span className="h-px flex-1 bg-zinc-700" />
         OR
-        <span className="h-px flex-1 bg-slate-200" />
+        <span className="h-px flex-1 bg-zinc-700" />
       </div>
       {method === "google" ? (
         <div className="space-y-2">
           <GoogleLogin onSuccess={handleGoogleSuccess} onError={() => showToast("error", "Google sign-up failed")} />
-          {loading.google ? <p className="text-sm text-slate-500">Signing up...</p> : null}
+          {loading.google ? <p className="text-sm text-gray-400">Signing up...</p> : null}
         </div>
       ) : null}
       {method === "email" ? (
@@ -131,7 +131,7 @@ const RegisterPage = () => {
             <OrganizationSignupFields form={form} onChange={(key, value) => setForm((p) => ({ ...p, [key]: value }))} />
           )}
           <input
-            className="w-full rounded-lg border px-3 py-2"
+            className="field-input"
             type="password"
             placeholder="Password"
             value={form.password}
@@ -139,7 +139,7 @@ const RegisterPage = () => {
             required
             minLength={6}
           />
-          <button disabled={loading.email} className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2 text-white disabled:opacity-70">
+          <button disabled={loading.email} className="btn-primary w-full">
             {loading.email ? <LoadingSpinner /> : null}
             Create Account
           </button>
@@ -165,7 +165,7 @@ const RegisterPage = () => {
           />
         </div>
       ) : null}
-      <p className="mt-4 text-sm">Already have an account? <Link to="/login" className="text-indigo-600">Login</Link></p>
+      <p className="mt-4 text-sm text-gray-400">Already have an account? <Link to="/login" className="text-white underline-offset-2 hover:underline">Login</Link></p>
     </div>
   );
 };

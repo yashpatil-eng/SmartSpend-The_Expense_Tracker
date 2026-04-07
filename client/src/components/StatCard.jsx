@@ -1,13 +1,13 @@
 const accentMap = {
-  indigo: "text-indigo-600",
-  emerald: "text-emerald-600",
-  rose: "text-rose-600",
-  amber: "text-amber-600"
+  indigo: "text-white",
+  emerald: "text-white",
+  rose: "text-white",
+  amber: "text-white"
 };
 
 const StatCard = ({ title, value, accent = "indigo" }) => (
-  <div className="rounded-xl border bg-white p-4 shadow-sm">
-    <p className="text-sm text-slate-500">{title}</p>
+  <div className="surface-card p-4">
+    <p className="text-sm text-gray-400">{title}</p>
     <p className={`mt-2 text-2xl font-semibold ${accentMap[accent] || accentMap.indigo}`}>{value}</p>
   </div>
 );

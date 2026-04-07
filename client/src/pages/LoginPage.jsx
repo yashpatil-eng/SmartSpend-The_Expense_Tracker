@@ -80,7 +80,7 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="mx-auto mt-10 max-w-md rounded-xl border bg-white p-6">
+    <div className="surface-card mx-auto mt-10 max-w-md p-6">
       <h1 className="mb-4 text-2xl font-bold">Welcome Back</h1>
       <AuthToast toast={toast} onClose={() => setToast({ type: "", message: "" })} />
       <div className="space-y-2">
@@ -88,15 +88,15 @@ const LoginPage = () => {
         <AuthOptionButton label="Continue with Mobile Number" icon={<Smartphone size={16} />} active={method === "mobile"} onClick={() => setMethod("mobile")} />
         <AuthOptionButton label="Continue with Email" icon={<Mail size={16} />} active={method === "email"} onClick={() => setMethod("email")} />
       </div>
-      <div className="my-4 flex items-center gap-3 text-xs text-slate-500">
-        <span className="h-px flex-1 bg-slate-200" />
+      <div className="my-4 flex items-center gap-3 text-xs text-gray-400">
+        <span className="h-px flex-1 bg-zinc-700" />
         OR
-        <span className="h-px flex-1 bg-slate-200" />
+        <span className="h-px flex-1 bg-zinc-700" />
       </div>
       {method === "google" ? (
         <div className="space-y-2">
           <GoogleLogin onSuccess={handleGoogleSuccess} onError={() => showToast("error", "Google sign-in failed")} />
-          {loading.google ? <p className="text-sm text-slate-500">Signing in...</p> : null}
+          {loading.google ? <p className="text-sm text-gray-400">Signing in...</p> : null}
         </div>
       ) : null}
       {method === "email" ? (
@@ -120,7 +120,7 @@ const LoginPage = () => {
           verifyingOtp={loading.verifyOtp}
         />
       ) : null}
-      <p className="mt-4 text-sm">No account? <Link to="/register" className="text-indigo-600">Create one</Link></p>
+      <p className="mt-4 text-sm text-gray-400">No account? <Link to="/register" className="text-white underline-offset-2 hover:underline">Create one</Link></p>
     </div>
   );
 };

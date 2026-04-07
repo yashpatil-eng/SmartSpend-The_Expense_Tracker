@@ -13,7 +13,7 @@ const MobileOtpForm = ({
 }) => (
   <div className="space-y-3">
     <input
-      className="w-full rounded-lg border px-3 py-2"
+      className="field-input"
       type="tel"
       placeholder="Mobile Number"
       value={mobile}
@@ -24,7 +24,7 @@ const MobileOtpForm = ({
       type="button"
       disabled={sendingOtp}
       onClick={onSendOtp}
-      className="flex w-full items-center justify-center gap-2 rounded-lg border border-indigo-600 py-2 text-indigo-700 disabled:opacity-70"
+      className="btn-secondary w-full"
     >
       {sendingOtp ? <LoadingSpinner /> : null}
       Send OTP
@@ -32,7 +32,7 @@ const MobileOtpForm = ({
     {otpSent && (
       <>
         <input
-          className="w-full rounded-lg border px-3 py-2"
+          className="field-input"
           inputMode="numeric"
           placeholder="Enter OTP"
           value={otp}
@@ -42,7 +42,7 @@ const MobileOtpForm = ({
           type="button"
           onClick={onVerifyOtp}
           disabled={verifyingOtp}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2 text-white disabled:opacity-70"
+          className="btn-primary w-full"
         >
           {verifyingOtp ? <LoadingSpinner /> : null}
           Verify OTP

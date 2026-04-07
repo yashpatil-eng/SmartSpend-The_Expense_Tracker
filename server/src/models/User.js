@@ -11,6 +11,11 @@ const userSchema = new mongoose.Schema(
     gstNumber: { type: String, trim: true },
     googleId: { type: String, unique: true, sparse: true },
     avatar: { type: String, trim: true },
+    preferences: {
+      language: { type: String, default: "en" }
+    },
+    currency: { type: String, default: "INR" },
+    theme: { type: String, enum: ["dark", "light"], default: "dark" },
     onboardingCompleted: { type: Boolean, default: false }
   },
   { timestamps: true }

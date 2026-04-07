@@ -8,6 +8,9 @@ import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import RegisterPage from "./pages/RegisterPage";
+import Settings from "./pages/Settings";
+import Analytics from "./pages/Analytics";
+import AIInsights from "./pages/AIInsights";
 
 const App = () => {
   const { user } = useAuth();
@@ -15,7 +18,7 @@ const App = () => {
   const showAppNavbar = location.pathname !== "/";
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="app-bg">
       {showAppNavbar ? <Navbar /> : null}
       <Routes>
         <Route path="/" element={<LandingPage />} />
@@ -37,6 +40,9 @@ const App = () => {
             </ProtectedRoute>
           }
         />
+        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+        <Route path="/ai-insights" element={<ProtectedRoute><AIInsights /></ProtectedRoute>} />
       </Routes>
     </div>
   );
