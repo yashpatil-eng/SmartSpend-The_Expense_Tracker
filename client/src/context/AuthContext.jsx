@@ -35,8 +35,27 @@ export const AuthProvider = ({ children }) => {
     return response.data.user;
   };
 
-  const register = async (name, email, password) => {
-    const response = await api.post("/auth/register", { name, email, password });
+  const register = async (payload) => {
+    const response = await api.post("/auth/register", payload);
+    localStorage.setItem("smartspend_token", response.data.token);
+    setUser(response.data.user);
+    return response.data.user;
+  };
+
+  const loginWithGoogle = async (credential) => {
+    const response = await api.post("/auth/google", { credential });
+    localStorage.setItem("smartspend_token", response.data.token);
+    setUser(response.data.user);
+    return response.data.user;
+  };
+
+  const sendOtp = async (mobile) => {
+    const response = await api.post("/auth/send-otp", { mobile });
+    return response.data;
+  };
+
+  const verifyOtp = async (payload) => {
+    const response = await api.post("/auth/verify-otp", payload);
     localStorage.setItem("smartspend_token", response.data.token);
     setUser(response.data.user);
     return response.data.user;
@@ -48,7 +67,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const value = useMemo(
-    () => ({ user, loading, login, register, logout, refreshUser: loadUser }),
+    () => ({ user, loading, login, register, loginWithGoogle, sendOtp, verifyOtp, logout, refreshUser: loadUser }),
     [user, loading]
   );
 
