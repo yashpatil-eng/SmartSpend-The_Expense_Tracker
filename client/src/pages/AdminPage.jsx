@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { BarChart3, Users, CreditCard, LogOut } from "lucide-react";
+import { BarChart3, Users, CreditCard, Shield, LogOut } from "lucide-react";
 import AdminDashboard from "../components/admin/AdminDashboard";
 import AdminUserManagement from "../components/admin/AdminUserManagement";
 import AdminTransactionManagement from "../components/admin/AdminTransactionManagement";
+import AdminManagement from "../components/admin/AdminManagement";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 
@@ -29,6 +30,7 @@ const AdminPage = () => {
 
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: BarChart3 },
+    { id: "management", label: "Admin Management", icon: Shield },
     { id: "users", label: "Users", icon: Users },
     { id: "transactions", label: "Transactions", icon: CreditCard }
   ];
@@ -85,6 +87,7 @@ const AdminPage = () => {
         <div className="flex-1 overflow-auto">
           <div className="p-8">
             {activeTab === "dashboard" && <AdminDashboard />}
+            {activeTab === "management" && <AdminManagement />}
             {activeTab === "users" && <AdminUserManagement />}
             {activeTab === "transactions" && <AdminTransactionManagement />}
           </div>

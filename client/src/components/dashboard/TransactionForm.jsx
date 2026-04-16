@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { AlertCircle, CheckCircle, AlertTriangle } from "lucide-react";
 import LoadingSpinner from "../auth/LoadingSpinner";
 
 const defaultCategories = ["Food", "Travel", "Bills", "Shopping", "Health", "Salary", "Other"];
@@ -31,7 +32,8 @@ const TransactionForm = ({ open, onClose, onSubmit, loading }) => {
     setForm((prev) => ({ ...prev, date: fresh.date, time: fresh.time }));
   }, [open]);
 
-  const computedTotal = useMemo(
+  // ✅ Calculate items total (breakdown of main amount)
+  const itemsTotal = useMemo(
     () =>
       form.items.reduce((sum, item) => {
         const price = Number(item.price || 0);
@@ -39,6 +41,24 @@ const TransactionForm = ({ open, onClose, onSubmit, loading }) => {
       }, 0),
     [form.items]
   );
+
+  // ✅ Main amount is primary (from amount field, not items)
+  const mainAmount = Number(form.amount || 0);
+
+  // ✅ Calculate remaining amount
+  const remainingAmount = mainAmount - itemsTotal;
+
+  // ✅ Validation status
+  const validationStatus = useMemo(() => {
+    if (!mainAmount) return { type: "neutral", text: "Enter amount" };
+    if (form.items.length <= 1 && !form.items[0].name) return { type: "balanced", text: "✓ No items breakdown" };
+    if (itemsTotal > mainAmount) return { type: "error", text: "❌ Items exceed amount" };
+    if (itemsTotal === mainAmount) return { type: "success", text: "✓ Balanced" };
+    if (itemsTotal > 0) return { type: "warning", text: `⚠ Remaining: ₹${remainingAmount.toFixed(2)}` };
+    return { type: "neutral", text: "Add item breakdown (optional)" };
+  }, [mainAmount, itemsTotal, remainingAmount, form.items]);
+
+  const canSubmit = mainAmount > 0 && itemsTotal <= mainAmount;
 
   if (!open) return null;
 
@@ -54,6 +74,7 @@ const TransactionForm = ({ open, onClose, onSubmit, loading }) => {
   };
 
   const removeItem = (index) => {
+    if (form.items.length === 1) return;
     setForm((prev) => ({
       ...prev,
       items: prev.items.filter((_, i) => i !== index)
@@ -65,24 +86,40 @@ const TransactionForm = ({ open, onClose, onSubmit, loading }) => {
     setPreview(file ? URL.createObjectURL(file) : "");
   };
 
+  // ✅ Auto-fill amount from items total
+  const handleAutoFillAmount = () => {
+    if (itemsTotal > 0) {
+      setForm((prev) => ({ ...prev, amount: String(itemsTotal) }));
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
-    if (!form.amount && computedTotal <= 0) {
-      setError("Enter an amount or add items with prices.");
+    // ✅ Validation: Amount is required
+    if (!mainAmount || mainAmount <= 0) {
+      setError("Please enter a valid amount (must be greater than 0)");
+      return;
+    }
+
+    // ✅ Validation: Items cannot exceed amount
+    if (itemsTotal > mainAmount) {
+      setError("Items total cannot exceed the main amount");
       return;
     }
 
     const payload = new FormData();
-    payload.append("amount", String(form.amount || computedTotal));
+    // ✅ Use mainAmount (not items total)
+    payload.append("amount", String(mainAmount));
     payload.append("type", form.type);
     payload.append("category", form.category);
     payload.append("notes", form.notes);
     payload.append("date", `${form.date}T${form.time}:00`);
+    // ✅ Send items as breakdown
     payload.append(
       "items",
-      JSON.stringify(form.items.filter((item) => item.name.trim() && Number(item.price) >= 0))
+      JSON.stringify(form.items.filter((item) => item.name.trim() && Number(item.price) > 0))
     );
     if (form.billImage) payload.append("billImage", form.billImage);
 
@@ -97,10 +134,28 @@ const TransactionForm = ({ open, onClose, onSubmit, loading }) => {
           <button type="button" className="btn-secondary" onClick={onClose}>Close</button>
         </div>
 
-        {error ? <p className="mb-3 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-red-400">{error}</p> : null}
+        {/* Error Message */}
+        {error ? (
+          <div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400 flex items-center gap-2">
+            <AlertCircle size={16} />
+            {error}
+          </div>
+        ) : null}
 
         <div className="grid gap-3 md:grid-cols-2">
-          <input className="field-input" type="number" min="0" step="0.01" placeholder="Amount" value={form.amount} onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))} />
+          <div>
+            <label className="text-xs text-gray-400 mb-1 block">Amount (Main Total)</label>
+            <input
+              className="field-input"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Enter total amount"
+              value={form.amount}
+              onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))}
+              required
+            />
+          </div>
           <select className="field-input" value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))}>
             <option value="income">Cash In (Income)</option>
             <option value="expense">Cash Out (Expense)</option>
@@ -115,33 +170,116 @@ const TransactionForm = ({ open, onClose, onSubmit, loading }) => {
           <textarea className="field-input md:col-span-2" rows={3} placeholder="Notes" value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} />
         </div>
 
-        <div className="mt-5 space-y-3">
+        {/* Items Breakdown Section */}
+        <div className="mt-5 space-y-3 border-t border-zinc-700 pt-5">
           <div className="flex items-center justify-between">
-            <h4 className="font-medium">Items</h4>
-            <button type="button" className="btn-secondary" onClick={addItem}>Add Item</button>
+            <h4 className="font-medium">Item Breakdown (Optional)</h4>
+            <button type="button" className="btn-secondary text-sm" onClick={addItem}>
+              + Add Item
+            </button>
           </div>
+
           {form.items.map((item, index) => (
             <div key={`${index}-${item.name}`} className="grid gap-2 md:grid-cols-[1fr_140px_100px]">
-              <input className="field-input" placeholder="Item Name" value={item.name} onChange={(e) => updateItem(index, "name", e.target.value)} />
-              <input className="field-input" type="number" min="0" step="0.01" placeholder="Price" value={item.price} onChange={(e) => updateItem(index, "price", e.target.value)} />
-              <button type="button" className="btn-danger" onClick={() => removeItem(index)} disabled={form.items.length === 1}>
+              <input
+                className="field-input"
+                placeholder="Item name"
+                value={item.name}
+                onChange={(e) => updateItem(index, "name", e.target.value)}
+              />
+              <input
+                className="field-input"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Price"
+                value={item.price}
+                onChange={(e) => updateItem(index, "price", e.target.value)}
+              />
+              <button
+                type="button"
+                className="btn-danger"
+                onClick={() => removeItem(index)}
+                disabled={form.items.length === 1}
+              >
                 Remove
               </button>
             </div>
           ))}
-          <p className="text-sm text-gray-400">Items Total: <span className="text-white">Rs. {computedTotal.toFixed(2)}</span></p>
+
+          {/* Items Summary and Validation */}
+          {mainAmount > 0 && (
+            <div className="mt-4 space-y-2 rounded-lg border border-zinc-700 p-4 bg-zinc-900/50">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-gray-400">Main Amount:</p>
+                  <p className="text-lg font-semibold text-white">₹{mainAmount.toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400">Items Total:</p>
+                  <p className={`text-lg font-semibold ${itemsTotal > 0 ? "text-blue-400" : "text-gray-400"}`}>
+                    ₹{itemsTotal.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Validation Status */}
+              <div className={`mt-3 rounded-lg p-3 flex items-center gap-2 ${
+                validationStatus.type === "error" ? "border border-red-500/30 bg-red-500/10 text-red-400" :
+                validationStatus.type === "success" ? "border border-green-500/30 bg-green-500/10 text-green-400" :
+                validationStatus.type === "warning" ? "border border-yellow-500/30 bg-yellow-500/10 text-yellow-400" :
+                "border border-zinc-600 bg-zinc-800/50 text-zinc-400"
+              }`}>
+                {validationStatus.type === "error" && <AlertCircle size={16} />}
+                {validationStatus.type === "success" && <CheckCircle size={16} />}
+                {validationStatus.type === "warning" && <AlertTriangle size={16} />}
+                <span className="text-sm font-medium">{validationStatus.text}</span>
+              </div>
+
+              {/* Auto-fill Button (if items exist and total is less than amount) */}
+              {itemsTotal > 0 && itemsTotal < mainAmount && (
+                <button
+                  type="button"
+                  onClick={handleAutoFillAmount}
+                  className="mt-2 w-full rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm text-blue-400 transition hover:bg-blue-500/20"
+                >
+                  📝 Auto-fill Amount from Items (₹{itemsTotal.toFixed(2)})
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
-        <div className="mt-5 space-y-2">
-          <label className="text-sm text-gray-400">Bill Photo Upload</label>
-          <input className="field-input" type="file" accept="image/*" onChange={(e) => handleFileChange(e.target.files?.[0])} />
-          {preview ? <img src={preview} alt="Bill preview" className="h-40 rounded-xl border border-zinc-700 object-cover" /> : null}
+        {/* Bill Upload Section */}
+        <div className="mt-5 space-y-2 border-t border-zinc-700 pt-5">
+          <label className="text-sm text-gray-400">Bill Photo Upload (Optional)</label>
+          <input
+            className="field-input"
+            type="file"
+            accept="image/*"
+            onChange={(e) => handleFileChange(e.target.files?.[0])}
+          />
+          {preview ? (
+            <img src={preview} alt="Bill preview" className="h-40 rounded-xl border border-zinc-700 object-cover" />
+          ) : null}
         </div>
 
-        <div className="mt-6 flex justify-end">
-          <button type="submit" className="btn-primary min-w-40" disabled={loading}>
+        {/* Submit Button */}
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="btn-secondary"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="btn-primary min-w-40"
+            disabled={loading || !canSubmit}
+          >
             {loading ? <LoadingSpinner /> : null}
-            Save Transaction
+            {!canSubmit && mainAmount > 0 ? "Fix validation" : "Save Transaction"}
           </button>
         </div>
       </form>

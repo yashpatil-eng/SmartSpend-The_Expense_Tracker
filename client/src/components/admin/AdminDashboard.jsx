@@ -1,14 +1,12 @@
 import { useState, useEffect } from "react";
 import api from "../../api/axios";
 import StatCard from "../StatCard";
-import CreateAdminForm from "./CreateAdminForm";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [showCreateAdminForm, setShowCreateAdminForm] = useState(false);
 
   useEffect(() => {
     fetchStats();
@@ -61,59 +59,15 @@ const AdminDashboard = () => {
         <StatCard title="Net Balance" value={`₹${stats.netBalance.toFixed(2)}`} icon="💰" />
       </div>
 
-      {/* Admin Management Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-1">
-          {showCreateAdminForm ? (
-            <CreateAdminForm 
-              onAdminCreated={() => {
-                setShowCreateAdminForm(false);
-                fetchStats();
-              }}
-              onCancel={() => setShowCreateAdminForm(false)}
-            />
-          ) : (
-            <div className="surface-card rounded-lg border border-zinc-700 p-6 text-center">
-              <div className="mb-4 text-4xl">👥</div>
-              <h3 className="mb-2 text-lg font-semibold">Manage Admins</h3>
-              <p className="mb-4 text-sm text-zinc-400">
-                Create and manage admin accounts for system administration
-              </p>
-              <button
-                onClick={() => setShowCreateAdminForm(true)}
-                className="w-full rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700"
-              >
-                + Create New Admin
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="lg:col-span-2 space-y-4">
-          <div className="surface-card rounded-lg border border-zinc-700 p-6">
-            <h3 className="mb-4 text-lg font-semibold">Admin Guidelines</h3>
-            <ul className="space-y-2 text-sm text-zinc-300">
-              <li className="flex gap-2">
-                <span className="text-blue-500">✓</span>
-                <span>Only existing admins can create new admin accounts</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="text-blue-500">✓</span>
-                <span>Share temporary password securely with the new admin</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="text-blue-500">✓</span>
-                <span>New admins must change their password on first login</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="text-blue-500">✓</span>
-                <span>Admins have full access to user management and reporting</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="text-blue-500">✓</span>
-                <span>Maintain audit logs of all admin actions</span>
-              </li>
-            </ul>
+      {/* Admin Management Link */}
+      <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-white mb-1">Manage Admin Accounts</h3>
+            <p className="text-sm text-zinc-400">Create or remove admin accounts, view all admins</p>
+          </div>
+          <div className="text-sm font-medium text-zinc-300 bg-zinc-800 rounded-lg px-4 py-2">
+            Use sidebar menu →
           </div>
         </div>
       </div>
@@ -135,7 +89,23 @@ const AdminDashboard = () => {
           </ResponsiveContainer>
         </div>
       )}
-
+      {/* Category Breakdown Chart */}
+      {stats.categoryBreakdown && stats.categoryBreakdown.length > 0 && (
+        <div className="surface-card p-6 rounded-lg">
+          <h2 className="text-xl font-bold mb-4">Transactions by Category</h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={stats.categoryBreakdown}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+              <XAxis dataKey="_id" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="total" fill="#9b59b6" name="Amount" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="count" fill="#1abc9c" name="Count" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
       {/* Recent Transactions */}
       {stats.recentTransactions && stats.recentTransactions.length > 0 && (
         <div className="surface-card p-6 rounded-lg">

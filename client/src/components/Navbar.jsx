@@ -29,13 +29,13 @@ const Navbar = () => {
               <Link className="text-sm text-white transition hover:text-gray-300" to="/settings">{t("settings")}</Link>
               {user.role === "admin" && (
                 <Link className="text-sm text-blue-400 transition hover:text-blue-300 font-semibold" to="/admin">
-                  {t("admin_panel")}
+                  🔐 Admin Panel
                 </Link>
               )}
               <span className="hidden text-sm text-gray-400 sm:block">{user.name}</span>
               {user.role === "admin" && (
                 <span className="hidden text-xs font-bold px-2 py-1 bg-blue-600 text-blue-100 rounded sm:block">
-                  🔐 Admin
+                  Admin
                 </span>
               )}
               <button
