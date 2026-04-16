@@ -62,12 +62,20 @@ const Dashboard = () => {
     setError("");
     try {
       setSubmitting(true);
-      await createTransaction(formData);
-      setMessage("Transaction added successfully.");
+      const response = await createTransaction(formData);
+      
+      // ✅ Return response so TransactionForm can handle success message
+      setMessage(response.data?.message || "Transaction added successfully.");
       setFormOpen(false);
       await loadDashboard();
+      
+      // ✅ Return response for form to display remaining amount info
+      return response.data;
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to add transaction.");
+      // ✅ Throw error so TransactionForm can catch and display
+      const errorMessage = err.response?.data?.message || "Unable to add transaction.";
+      setError(errorMessage);
+      throw err;
     } finally {
       setSubmitting(false);
     }

@@ -21,7 +21,7 @@ const LoginPage = () => {
   const [toast, setToast] = useState({ type: "", message: "" });
 
   const onAuthSuccess = (user) => {
-    // Role-based redirect: admins go to admin dashboard, others to user dashboard
+    // ✅ Role-based redirect: admins go to admin dashboard, others to user dashboard
     if (user.role === "admin") {
       navigate("/admin");
     } else {

@@ -25,6 +25,27 @@ const TransactionForm = ({ open, onClose, onSubmit, loading }) => {
   });
   const [preview, setPreview] = useState("");
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [successDetails, setSuccessDetails] = useState("");
+
+  // ✅ Reset form to initial state
+  const resetForm = () => {
+    const fresh = getNowDefaults();
+    setForm({
+      amount: "",
+      type: "expense",
+      category: "Food",
+      date: fresh.date,
+      time: fresh.time,
+      notes: "",
+      items: [{ name: "", price: "" }],
+      billImage: null
+    });
+    setPreview("");
+    setError("");
+    setSuccessMessage("");
+    setSuccessDetails("");
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -58,7 +79,7 @@ const TransactionForm = ({ open, onClose, onSubmit, loading }) => {
     return { type: "neutral", text: "Add item breakdown (optional)" };
   }, [mainAmount, itemsTotal, remainingAmount, form.items]);
 
-  const canSubmit = mainAmount > 0 && itemsTotal <= mainAmount;
+  const canSubmit = mainAmount > 0 && itemsTotal <= mainAmount && !loading;
 
   if (!open) return null;
 
@@ -96,6 +117,7 @@ const TransactionForm = ({ open, onClose, onSubmit, loading }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setSuccessMessage("");
 
     // ✅ Validation: Amount is required
     if (!mainAmount || mainAmount <= 0) {
@@ -123,7 +145,29 @@ const TransactionForm = ({ open, onClose, onSubmit, loading }) => {
     );
     if (form.billImage) payload.append("billImage", form.billImage);
 
-    await onSubmit(payload);
+    try {
+      // ✅ Call onSubmit and await response
+      const response = await onSubmit(payload);
+
+      // ✅ Show success message from backend
+      setSuccessMessage(response?.message || "✓ Transaction added successfully");
+      
+      // ✅ Extract remaining amount info if it exists
+      if (response?.remainingTransaction) {
+        const remaining = response.remainingTransaction.amount;
+        setSuccessDetails(`Remaining amount ₹${remaining.toFixed(2)} added as 'Other'`);
+      }
+
+      // ✅ Reset form after short delay and close modal
+      setTimeout(() => {
+        resetForm();
+        onClose();
+      }, 1500);
+    } catch (err) {
+      // ✅ Show error from API or fallback message
+      const errorMsg = err.response?.data?.message || err.message || "Failed to save transaction";
+      setError(errorMsg);
+    }
   };
 
   return (
@@ -131,8 +175,21 @@ const TransactionForm = ({ open, onClose, onSubmit, loading }) => {
       <form onSubmit={handleSubmit} className="surface-card max-h-[92vh] w-full max-w-2xl overflow-y-auto p-5">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-xl font-semibold">Add Transaction</h3>
-          <button type="button" className="btn-secondary" onClick={onClose}>Close</button>
+          <button type="button" className="btn-secondary" onClick={onClose} disabled={loading}>Close</button>
         </div>
+
+        {/* Success Message */}
+        {successMessage ? (
+          <div className="mb-3 rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-3 space-y-1">
+            <div className="flex items-center gap-2 text-green-400">
+              <CheckCircle size={18} />
+              <span className="font-medium">{successMessage}</span>
+            </div>
+            {successDetails && (
+              <p className="text-sm text-green-300 ml-7">{successDetails}</p>
+            )}
+          </div>
+        ) : null}
 
         {/* Error Message */}
         {error ? (
@@ -153,28 +210,65 @@ const TransactionForm = ({ open, onClose, onSubmit, loading }) => {
               placeholder="Enter total amount"
               value={form.amount}
               onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))}
+              disabled={loading || successMessage}
               required
             />
           </div>
-          <select className="field-input" value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))}>
+          <select 
+            className="field-input" 
+            value={form.type} 
+            onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))}
+            disabled={loading || successMessage}
+          >
             <option value="income">Cash In (Income)</option>
             <option value="expense">Cash Out (Expense)</option>
           </select>
-          <input className="field-input" type="date" value={form.date} onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))} required />
-          <input className="field-input" type="time" value={form.time} onChange={(e) => setForm((p) => ({ ...p, time: e.target.value }))} required />
-          <select className="field-input md:col-span-2" value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}>
+          <input 
+            className="field-input" 
+            type="date" 
+            value={form.date} 
+            onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))} 
+            disabled={loading || successMessage}
+            required 
+          />
+          <input 
+            className="field-input" 
+            type="time" 
+            value={form.time} 
+            onChange={(e) => setForm((p) => ({ ...p, time: e.target.value }))}
+            disabled={loading || successMessage}
+            required 
+          />
+          <select 
+            className="field-input md:col-span-2" 
+            value={form.category} 
+            onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
+            disabled={loading || successMessage}
+          >
             {defaultCategories.map((category) => (
               <option key={category} value={category}>{category}</option>
             ))}
           </select>
-          <textarea className="field-input md:col-span-2" rows={3} placeholder="Notes" value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} />
+          <textarea 
+            className="field-input md:col-span-2" 
+            rows={3} 
+            placeholder="Notes" 
+            value={form.notes} 
+            onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
+            disabled={loading || successMessage}
+          />
         </div>
 
         {/* Items Breakdown Section */}
         <div className="mt-5 space-y-3 border-t border-zinc-700 pt-5">
           <div className="flex items-center justify-between">
             <h4 className="font-medium">Item Breakdown (Optional)</h4>
-            <button type="button" className="btn-secondary text-sm" onClick={addItem}>
+            <button 
+              type="button" 
+              className="btn-secondary text-sm" 
+              onClick={addItem}
+              disabled={loading || successMessage}
+            >
               + Add Item
             </button>
           </div>
@@ -186,6 +280,7 @@ const TransactionForm = ({ open, onClose, onSubmit, loading }) => {
                 placeholder="Item name"
                 value={item.name}
                 onChange={(e) => updateItem(index, "name", e.target.value)}
+                disabled={loading || successMessage}
               />
               <input
                 className="field-input"
@@ -195,12 +290,13 @@ const TransactionForm = ({ open, onClose, onSubmit, loading }) => {
                 placeholder="Price"
                 value={item.price}
                 onChange={(e) => updateItem(index, "price", e.target.value)}
+                disabled={loading || successMessage}
               />
               <button
                 type="button"
                 className="btn-danger"
                 onClick={() => removeItem(index)}
-                disabled={form.items.length === 1}
+                disabled={form.items.length === 1 || loading || successMessage}
               >
                 Remove
               </button>
@@ -242,6 +338,7 @@ const TransactionForm = ({ open, onClose, onSubmit, loading }) => {
                   type="button"
                   onClick={handleAutoFillAmount}
                   className="mt-2 w-full rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm text-blue-400 transition hover:bg-blue-500/20"
+                  disabled={loading || successMessage}
                 >
                   📝 Auto-fill Amount from Items (₹{itemsTotal.toFixed(2)})
                 </button>
@@ -258,6 +355,7 @@ const TransactionForm = ({ open, onClose, onSubmit, loading }) => {
             type="file"
             accept="image/*"
             onChange={(e) => handleFileChange(e.target.files?.[0])}
+            disabled={loading || successMessage}
           />
           {preview ? (
             <img src={preview} alt="Bill preview" className="h-40 rounded-xl border border-zinc-700 object-cover" />
@@ -270,16 +368,24 @@ const TransactionForm = ({ open, onClose, onSubmit, loading }) => {
             type="button"
             onClick={onClose}
             className="btn-secondary"
+            disabled={loading}
           >
             Cancel
           </button>
           <button
             type="submit"
             className="btn-primary min-w-40"
-            disabled={loading || !canSubmit}
+            disabled={!canSubmit}
           >
-            {loading ? <LoadingSpinner /> : null}
-            {!canSubmit && mainAmount > 0 ? "Fix validation" : "Save Transaction"}
+            {loading ? (
+              <>
+                <LoadingSpinner /> Saving...
+              </>
+            ) : successMessage ? (
+              "✓ Saved!"
+            ) : (
+              "Save Transaction"
+            )}
           </button>
         </div>
       </form>

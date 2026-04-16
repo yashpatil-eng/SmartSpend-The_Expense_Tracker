@@ -11,6 +11,27 @@ export const protect = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // ✅ Handle admin token (id = "admin", role = "admin")
+    if (decoded.id === "admin" && decoded.role === "admin") {
+      req.user = {
+        _id: "admin",
+        id: "admin",
+        name: "Administrator",
+        email: "admin@gmail.com",
+        role: "admin",
+        accountRole: "admin",
+        mobile: "",
+        organizationName: "",
+        gstNumber: "",
+        avatar: "",
+        onboardingCompleted: true,
+        isActive: true
+      };
+      return next();
+    }
+
+    // ✅ Handle regular user tokens (lookup from database)
     req.user = await User.findById(decoded.id).select("-password");
     if (!req.user) {
       return res.status(401).json({ message: "User not found" });

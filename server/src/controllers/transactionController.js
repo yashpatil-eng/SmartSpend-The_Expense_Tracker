@@ -17,8 +17,60 @@ const normalizeItems = (items) => {
     .map((item) => ({ name: String(item.name).trim(), price: Number(item.price) }));
 };
 
+// ✅ Helper function to create transaction with remaining amount logic
+const createTransactionWithRemaining = async (userId, transactionData) => {
+  const { amount, type, category, notes, date, items, billImage } = transactionData;
+
+  // Calculate items total (breakdown)
+  const itemsTotal = items.length
+    ? items.reduce((sum, item) => sum + Number(item.price), 0)
+    : 0;
+
+  // Calculate remaining amount
+  const remainingAmount = Number(amount) - itemsTotal;
+
+  // Create main transaction
+  const mainTransaction = await Transaction.create({
+    userId,
+    amount: Number(amount),
+    type,
+    category,
+    notes,
+    items,
+    billImage,
+    date: new Date(date)
+  });
+
+  let remainingTransaction = null;
+  let message = "Transaction added successfully";
+
+  // ✅ Create remaining transaction if remaining > 0
+  if (remainingAmount > 0) {
+    remainingTransaction = await Transaction.create({
+      userId,
+      amount: remainingAmount,
+      type,
+      category: "Other",
+      notes: "Auto-generated remaining amount",
+      items: [],
+      billImage: "",
+      date: new Date(date)
+    });
+
+    message = `Transaction added successfully. Remaining amount ₹${remainingAmount.toFixed(2)} added as 'Other'`;
+  }
+
+  return {
+    mainTransaction,
+    remainingTransaction,
+    message
+  };
+};
+
 export const addTransaction = async (req, res) => {
   const { amount, type, category, notes, date } = req.body;
+  
+  // ✅ Validation
   if (!amount || !type || !category || !date) {
     return res.status(400).json({ message: "Amount, type, category and date are required" });
   }
@@ -26,21 +78,41 @@ export const addTransaction = async (req, res) => {
     return res.status(400).json({ message: "Transaction type must be income or expense" });
   }
 
+  const mainAmount = Number(amount);
+  if (mainAmount <= 0) {
+    return res.status(400).json({ message: "Amount must be greater than 0" });
+  }
+
   const items = normalizeItems(req.body.items);
-  const computedAmount = items.length ? items.reduce((sum, item) => sum + item.price, 0) : Number(amount);
+  const itemsTotal = items.length
+    ? items.reduce((sum, item) => sum + Number(item.price), 0)
+    : 0;
 
-  const transaction = await Transaction.create({
-    userId: req.user._id,
-    amount: computedAmount,
-    type,
-    category,
-    notes: notes || "",
-    items,
-    billImage: req.file ? `/uploads/${req.file.filename}` : "",
-    date: new Date(date)
-  });
+  // ✅ Validation: Items cannot exceed amount
+  if (itemsTotal > mainAmount) {
+    return res.status(400).json({ message: "Items total cannot exceed the main amount" });
+  }
 
-  return res.status(201).json(transaction);
+  try {
+    const result = await createTransactionWithRemaining(req.user._id, {
+      amount: mainAmount,
+      type,
+      category,
+      notes: notes || "",
+      items,
+      billImage: req.file ? `/uploads/${req.file.filename}` : "",
+      date
+    });
+
+    return res.status(201).json({
+      success: true,
+      mainTransaction: result.mainTransaction,
+      remainingTransaction: result.remainingTransaction,
+      message: result.message
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Error creating transaction", error: error.message });
+  }
 };
 
 export const getTransactions = async (req, res) => {

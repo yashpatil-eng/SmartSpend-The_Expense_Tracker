@@ -14,35 +14,43 @@ async function seedAdmin() {
     await mongoose.connect(process.env.MONGO_URI);
     console.log("Connected to MongoDB");
 
-    // Check if admin already exists
-    const existingAdmin = await User.findOne({ role: "admin" });
-    if (existingAdmin) {
-      console.log("✓ Admin already exists:", existingAdmin.email);
+    // ⚠️ NOTE: Admin is now hardcoded only (admin@gmail.com / Admin@123)
+    // Admin users are NO LONGER created in the database.
+    // This seed file now creates a regular TEST USER instead.
+    
+    // Check if test user already exists
+    const existingUser = await User.findOne({ email: "testuser@smartspend.local" });
+    if (existingUser) {
+      console.log("✓ Test user already exists:", existingUser.email);
       process.exit(0);
     }
 
-    // Create admin user
-    const hashedPassword = await bcrypt.hash("admin@123", 10);
-    const admin = await User.create({
-      name: "Admin User",
-      email: "admin@smartspend.local",
+    // Create test user (not admin)
+    const hashedPassword = await bcrypt.hash("testuser@123", 10);
+    const testUser = await User.create({
+      name: "Test User",
+      email: "testuser@smartspend.local",
       password: hashedPassword,
-      mobile: "8888888888",
-      role: "admin",
+      mobile: "9999999999",
+      role: "user", // ✅ Only role "user" now
       accountRole: "personal",
       avatar: "",
       onboardingCompleted: true,
       isActive: true
     });
 
-    console.log("✓ Admin user created successfully!");
-    console.log("  Email: admin@smartspend.local");
-    console.log("  Password: admin@123");
-    console.log("\nPlease change password after first login!");
+    console.log("✓ Test user created successfully!");
+    console.log("  Email: testuser@smartspend.local");
+    console.log("  Password: testuser@123");
+    console.log("  Role: user");
+    console.log("\n📌 To login as admin, use:");
+    console.log("  Email: admin@gmail.com");
+    console.log("  Password: Admin@123");
+    console.log("  (Hardcoded admin - NOT in database)");
 
     process.exit(0);
   } catch (error) {
-    console.error("Error seeding admin:", error.message);
+    console.error("Error seeding user:", error.message);
     process.exit(1);
   }
 }

@@ -14,47 +14,55 @@ async function seedCustomAdmin() {
     await mongoose.connect(process.env.MONGO_URI);
     console.log("Connected to MongoDB");
 
-    const adminEmail = "khillaredipak908@gmail.com";
-    const adminPassword = "Dipak@123";
+    // ⚠️ NOTE: Admin is now hardcoded only (admin@gmail.com / Admin@123)
+    // Admin users are NO LONGER created in the database.
+    // This seed file now creates a regular TEST USER instead.
 
-    // Check if admin already exists by email
-    let admin = await User.findOne({ email: adminEmail });
+    const testEmail = "khillaredipak908@gmail.com";
+    const testPassword = "Dipak@123";
+
+    // Check if test user already exists by email
+    let user = await User.findOne({ email: testEmail });
     
-    if (admin) {
-      // Update existing admin's password
-      admin.password = await bcrypt.hash(adminPassword, 10);
-      admin.role = "admin";
-      admin.accountRole = "personal";
-      admin.onboardingCompleted = true;
-      admin.isActive = true;
-      await admin.save();
-      console.log("✓ Admin user updated successfully!");
-      console.log("  Email:", adminEmail);
-      console.log("  Password:", adminPassword);
-      console.log("  Role: admin");
+    if (user) {
+      // Update existing user
+      user.password = await bcrypt.hash(testPassword, 10);
+      user.role = "user"; // ✅ Only "user" role allowed
+      user.accountRole = "personal";
+      user.onboardingCompleted = true;
+      user.isActive = true;
+      await user.save();
+      console.log("✓ Test user updated successfully!");
+      console.log("  Email:", testEmail);
+      console.log("  Password:", testPassword);
+      console.log("  Role: user");
     } else {
-      // Create new admin user
-      const hashedPassword = await bcrypt.hash(adminPassword, 10);
-      admin = await User.create({
-        name: "Dipak (Admin)",
-        email: adminEmail,
+      // Create new test user
+      const hashedPassword = await bcrypt.hash(testPassword, 10);
+      user = await User.create({
+        name: "Dipak (Test User)",
+        email: testEmail,
         password: hashedPassword,
-        mobile: "98764532" + Math.floor(Math.random() * 100), // Random suffix to avoid duplicates
-        role: "admin",
+        mobile: "98764532" + Math.floor(Math.random() * 100),
+        role: "user", // ✅ Only "user" role allowed
         accountRole: "personal",
         avatar: "",
         onboardingCompleted: true,
         isActive: true
       });
-      console.log("✓ Admin user created successfully!");
-      console.log("  Email:", adminEmail);
-      console.log("  Password:", adminPassword);
+      console.log("✓ Test user created successfully!");
+      console.log("  Email:", testEmail);
+      console.log("  Password:", testPassword);
+      console.log("  Role: user");
     }
 
-    console.log("\n✓ You can now login as admin with these credentials");
+    console.log("\n📌 To login as admin, use:");
+    console.log("  Email: admin@gmail.com");
+    console.log("  Password: Admin@123");
+    console.log("  (Hardcoded admin - NOT in database)");
     process.exit(0);
   } catch (error) {
-    console.error("Error seeding admin:", error.message);
+    console.error("Error seeding user:", error.message);
     process.exit(1);
   }
 }

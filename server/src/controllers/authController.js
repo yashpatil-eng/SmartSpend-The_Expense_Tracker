@@ -4,7 +4,7 @@ import { OAuth2Client } from "google-auth-library";
 import twilio from "twilio";
 import User from "../models/User.js";
 import { generateToken } from "../utils/token.js";
-import { isAdminEmail } from "../config/admins.js";
+import { isHardcodedAdmin } from "../config/admins.js";
 
 const googleClient = process.env.GOOGLE_CLIENT_ID ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID) : null;
 const otpStore = new Map();
@@ -49,6 +49,10 @@ const validateRegistration = (payload) => {
       return "Organization name, owner name and business email are required";
     }
   }
+  // ✅ SECURITY: Block admin email from registering
+  if (email.toLowerCase() === "admin@gmail.com") {
+    return "This email is reserved for admin use";
+  }
   return null;
 };
 
@@ -87,16 +91,14 @@ export const register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const resolvedName = accountRole === "organization" ? ownerName : name || fullName;
 
-    // ⚠️ SECURITY: Role assignment ONLY through isAdminEmail check
-    // Users can NEVER manually set admin role through signup
-    const userRole = isAdminEmail(normalizedEmail) ? "admin" : "user";
-
+    // ✅ SECURITY: Role ALWAYS "user" for database users
+    // Admin is NOT stored in database, only hardcoded
     const user = await User.create({
       name: resolvedName,
       email: normalizedEmail,
       password: hashedPassword,
       mobile: normalizedMobile,
-      role: userRole, // ✓ Forced through isAdminEmail check only
+      role: "user", // ✅ Always "user" for database records
       accountRole: accountRole,
       organizationName: accountRole === "organization" ? organizationName : undefined,
       gstNumber: accountRole === "organization" ? gstNumber : undefined
@@ -104,7 +106,7 @@ export const register = async (req, res) => {
 
     return res.status(201).json({
       user: sanitizeUser(user),
-      token: generateToken(user._id)
+      token: generateToken(user._id, "user")
     });
   } catch (error) {
     console.error("Registration error:", error);
@@ -124,6 +126,28 @@ export const login = async (req, res) => {
       return res.status(400).json({ message: "Email and password are required" });
     }
 
+    // ✅ CHECK HARDCODED ADMIN FIRST
+    // Admin is NOT in database, only hardcoded
+    if (isHardcodedAdmin(email, password)) {
+      return res.json({
+        user: {
+          id: "admin",
+          name: "Administrator",
+          email: "admin@gmail.com",
+          role: "admin",
+          accountRole: "admin",
+          mobile: "",
+          organizationName: "",
+          gstNumber: "",
+          avatar: "",
+          onboardingCompleted: true,
+          isActive: true
+        },
+        token: generateToken("admin", "admin") // ✅ Role "admin" in token
+      });
+    }
+
+    // ✅ THEN CHECK DATABASE FOR REGULAR USERS
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
@@ -140,7 +164,7 @@ export const login = async (req, res) => {
 
     return res.json({
       user: sanitizeUser(user),
-      token: generateToken(user._id)
+      token: generateToken(user._id, "user") // ✅ Role "user" in token
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -175,14 +199,13 @@ export const googleAuth = async (req, res) => {
 
     if (!user) {
       const normalizedEmail = payload.email.toLowerCase();
-      const userRole = isAdminEmail(normalizedEmail) ? "admin" : "user";
-      
+      // ✅ Always "user" for Google auth - admin cannot be created this way
       user = await User.create({
         name: payload.name || payload.email.split("@")[0],
         email: normalizedEmail,
         googleId: payload.sub,
         avatar: payload.picture,
-        role: userRole,
+        role: "user",
         accountRole: "personal"
       });
     } else {
@@ -202,7 +225,7 @@ export const googleAuth = async (req, res) => {
 
     return res.json({
       user: sanitizeUser(user),
-      token: generateToken(user._id)
+      token: generateToken(user._id, "user") // ✅ Always "user" role
     });
   } catch (error) {
     console.error("Google auth error:", error);
@@ -300,15 +323,13 @@ export const verifyOtp = async (req, res) => {
         await user.save();
       } else {
         const normalizedEmail = email ? email.toLowerCase() : undefined;
-        // ⚠️ SECURITY: Role assignment ONLY through isAdminEmail check
-        // Users can NEVER manually set admin role through signup
-        const userRole = normalizedEmail && isAdminEmail(normalizedEmail) ? "admin" : "user";
-        
+        // ✅ SECURITY: Role ALWAYS "user" for new OTP signups
+        // Admin cannot be created through OTP
         user = await User.create({
           name: name || `User ${normalizedMobile.slice(-4)}`,
           email: normalizedEmail,
           mobile: normalizedMobile,
-          role: userRole, // ✓ Forced through isAdminEmail check only
+          role: "user", // ✅ Always "user" for new OTP accounts
           accountRole
         });
       }
@@ -316,7 +337,7 @@ export const verifyOtp = async (req, res) => {
 
     return res.json({
       user: sanitizeUser(user),
-      token: generateToken(user._id)
+      token: generateToken(user._id, "user") // ✅ Always "user" role
     });
   } catch (error) {
     console.error("Verify OTP error:", error);

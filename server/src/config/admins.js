@@ -1,14 +1,24 @@
-// Hardcoded list of admin emails - only these users have admin access
-export const ADMIN_EMAILS = [
-  "dipak@gmail.com",
-  "jayesh@gmail.com",
-  "yash@gmail.com",
-  "tejas@gmail.com",
-  "khillaredipak908@gmail.com"
-];
+// ✅ SINGLE HARDCODED ADMIN - Only one admin in the system
+const ADMIN_EMAIL = "admin@gmail.com";
+const ADMIN_PASSWORD = "Admin@123";
 
-// Function to check if an email is admin
-export const isAdminEmail = (email) => {
-  if (!email) return false;
-  return ADMIN_EMAILS.includes(email.toLowerCase());
+/**
+ * ✅ Check if credentials match the hardcoded admin
+ * Only admin@gmail.com with Admin@123 is allowed
+ * This is NOT stored in the database
+ */
+export const isHardcodedAdmin = (email, password) => {
+  if (!email || !password) return false;
+  return (
+    email.toLowerCase() === ADMIN_EMAIL &&
+    password === ADMIN_PASSWORD
+  );
 };
+
+/**
+ * ✅ Get hardcoded admin credentials (for reference only)
+ */
+export const getAdminCredentials = () => ({
+  email: ADMIN_EMAIL,
+  password: ADMIN_PASSWORD
+});
