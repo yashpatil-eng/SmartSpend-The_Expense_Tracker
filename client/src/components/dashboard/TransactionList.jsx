@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { formatDate } from "../../utils/format";
+import { formatCurrency, formatDate } from "../../utils/format";
 
 const host = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/api\/?$/, "");
 
@@ -18,7 +18,7 @@ const TransactionList = ({ transactions, onDelete, deletingId }) => {
           <article key={tx._id} className="rounded-2xl border border-zinc-700 bg-zinc-900 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-lg font-semibold text-white">Rs. {tx.amount.toFixed(2)}</p>
+                <p className="text-lg font-semibold text-white">{formatCurrency(tx.amount)}</p>
                 <p className="text-sm text-gray-400">{tx.category} • {formatDate(tx.date)}</p>
                 {tx.notes ? <p className="mt-1 text-sm text-gray-400">{tx.notes}</p> : null}
               </div>

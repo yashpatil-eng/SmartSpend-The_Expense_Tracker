@@ -11,6 +11,7 @@ import { useAuth } from "../hooks/useAuth";
 const LoginPage = () => {
   const { login, loginWithGoogle, sendOtp, verifyOtp } = useAuth();
   const navigate = useNavigate();
+  const [loginType, setLoginType] = useState(null); // "user" or "admin"
   const [method, setMethod] = useState("email");
   const [form, setForm] = useState({ email: "", password: "" });
   const [mobile, setMobile] = useState("");
@@ -57,8 +58,7 @@ const LoginPage = () => {
       setLoading((prev) => ({ ...prev, otp: true }));
       const response = await sendOtp(mobile);
       setOtpSent(true);
-      const devOtpHint = response.devOtp ? ` (Dev OTP: ${response.devOtp})` : "";
-      showToast("success", `OTP sent successfully${devOtpHint}`);
+      showToast("success", "OTP sent successfully");
     } catch (err) {
       showToast("error", err.response?.data?.message || "Unable to send OTP");
     } finally {
@@ -81,46 +81,87 @@ const LoginPage = () => {
 
   return (
     <div className="surface-card mx-auto mt-10 max-w-md p-6">
-      <h1 className="mb-4 text-2xl font-bold">Welcome Back</h1>
-      <AuthToast toast={toast} onClose={() => setToast({ type: "", message: "" })} />
-      <div className="space-y-2">
-        <AuthOptionButton label="Continue with Google" icon="G" active={method === "google"} onClick={() => setMethod("google")} />
-        <AuthOptionButton label="Continue with Mobile Number" icon={<Smartphone size={16} />} active={method === "mobile"} onClick={() => setMethod("mobile")} />
-        <AuthOptionButton label="Continue with Email" icon={<Mail size={16} />} active={method === "email"} onClick={() => setMethod("email")} />
-      </div>
-      <div className="my-4 flex items-center gap-3 text-xs text-gray-400">
-        <span className="h-px flex-1 bg-zinc-700" />
-        OR
-        <span className="h-px flex-1 bg-zinc-700" />
-      </div>
-      {method === "google" ? (
-        <div className="space-y-2">
-          <GoogleLogin onSuccess={handleGoogleSuccess} onError={() => showToast("error", "Google sign-in failed")} />
-          {loading.google ? <p className="text-sm text-gray-400">Signing in...</p> : null}
-        </div>
-      ) : null}
-      {method === "email" ? (
-        <EmailAuthForm
-          form={form}
-          loading={loading.email}
-          onChange={(key, value) => setForm((p) => ({ ...p, [key]: value }))}
-          onSubmit={handleSubmit}
-        />
-      ) : null}
-      {method === "mobile" ? (
-        <MobileOtpForm
-          mobile={mobile}
-          otp={otp}
-          onMobileChange={setMobile}
-          onOtpChange={setOtp}
-          onSendOtp={handleSendOtp}
-          onVerifyOtp={handleVerifyOtp}
-          otpSent={otpSent}
-          sendingOtp={loading.otp}
-          verifyingOtp={loading.verifyOtp}
-        />
-      ) : null}
-      <p className="mt-4 text-sm text-gray-400">No account? <Link to="/register" className="text-white underline-offset-2 hover:underline">Create one</Link></p>
+      {!loginType ? (
+        <>
+          <h1 className="mb-4 text-2xl font-bold">Select Login Type</h1>
+          <AuthToast toast={toast} onClose={() => setToast({ type: "", message: "" })} />
+          <div className="space-y-3">
+            <button
+              onClick={() => setLoginType("user")}
+              className="btn-primary w-full py-3 text-center"
+            >
+              👤 Personal Login
+            </button>
+            <button
+              onClick={() => setLoginType("organization")}
+              className="btn-primary w-full py-3 text-center"
+            >
+              🏢 Organization Login
+            </button>
+            <button
+              onClick={() => setLoginType("admin")}
+              className="btn-secondary w-full py-3 text-center"
+            >
+              🔐 Admin Login
+            </button>
+          </div>
+          <p className="mt-6 text-sm text-gray-400">No account? <Link to="/register" className="text-white underline-offset-2 hover:underline">Create one</Link></p>
+        </>
+      ) : (
+        <>
+          <div className="mb-4 flex items-center justify-between">
+            <h1 className="text-2xl font-bold">
+              {loginType === "admin" ? "🔐 Admin Login" : loginType === "organization" ? "🏢 Organization Login" : "👤 Personal Login"}
+            </h1>
+            <button
+              onClick={() => setLoginType(null)}
+              className="text-sm text-gray-400 hover:text-gray-300"
+              title="Change login type"
+            >
+              ← Back
+            </button>
+          </div>
+          <AuthToast toast={toast} onClose={() => setToast({ type: "", message: "" })} />
+          <div className="space-y-2">
+            <AuthOptionButton label="Continue with Google" icon="G" active={method === "google"} onClick={() => setMethod("google")} />
+            <AuthOptionButton label="Continue with Mobile Number" icon={<Smartphone size={16} />} active={method === "mobile"} onClick={() => setMethod("mobile")} />
+            <AuthOptionButton label="Continue with Email" icon={<Mail size={16} />} active={method === "email"} onClick={() => setMethod("email")} />
+          </div>
+          <div className="my-4 flex items-center gap-3 text-xs text-gray-400">
+            <span className="h-px flex-1 bg-zinc-700" />
+            OR
+            <span className="h-px flex-1 bg-zinc-700" />
+          </div>
+          {method === "google" ? (
+            <div className="space-y-2">
+              <GoogleLogin onSuccess={handleGoogleSuccess} onError={() => showToast("error", "Google sign-in failed")} />
+              {loading.google ? <p className="text-sm text-gray-400">Signing in...</p> : null}
+            </div>
+          ) : null}
+          {method === "email" ? (
+            <EmailAuthForm
+              form={form}
+              loading={loading.email}
+              onChange={(key, value) => setForm((p) => ({ ...p, [key]: value }))}
+              onSubmit={handleSubmit}
+            />
+          ) : null}
+          {method === "mobile" ? (
+            <MobileOtpForm
+              mobile={mobile}
+              otp={otp}
+              onMobileChange={setMobile}
+              onOtpChange={setOtp}
+              onSendOtp={handleSendOtp}
+              onVerifyOtp={handleVerifyOtp}
+              otpSent={otpSent}
+              sendingOtp={loading.otp}
+              verifyingOtp={loading.verifyOtp}
+            />
+          ) : null}
+          <p className="mt-4 text-sm text-gray-400">No account? <Link to="/register" className="text-white underline-offset-2 hover:underline">Create one</Link></p>
+        </>
+      )}
     </div>
   );
 };

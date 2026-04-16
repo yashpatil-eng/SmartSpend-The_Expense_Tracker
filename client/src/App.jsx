@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AdminRoute from "./components/AdminRoute";
 import { useAuth } from "./hooks/useAuth";
 import DashboardPage from "./pages/DashboardPage";
 import LandingPage from "./pages/LandingPage";
@@ -11,6 +12,7 @@ import RegisterPage from "./pages/RegisterPage";
 import Settings from "./pages/Settings";
 import Analytics from "./pages/Analytics";
 import AIInsights from "./pages/AIInsights";
+import AdminPage from "./pages/AdminPage";
 
 const App = () => {
   const { user } = useAuth();
@@ -43,6 +45,7 @@ const App = () => {
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
         <Route path="/ai-insights" element={<ProtectedRoute><AIInsights /></ProtectedRoute>} />
+        <Route path="/admin/*" element={<AdminRoute><AdminPage /></AdminRoute>} />
       </Routes>
     </div>
   );

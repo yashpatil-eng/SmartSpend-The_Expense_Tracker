@@ -10,6 +10,7 @@ import expenseRoutes from "./routes/expenseRoutes.js";
 import profileRoutes from "./routes/profileRoutes.js";
 import transactionRoutes from "./routes/transactionRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
 
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
@@ -35,6 +36,7 @@ app.use("/api/transactions", transactionRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/admin", adminRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);

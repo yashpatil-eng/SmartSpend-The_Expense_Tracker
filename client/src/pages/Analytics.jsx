@@ -3,7 +3,7 @@ import { Bar, BarChart, Legend, Line, LineChart, Pie, PieChart, ResponsiveContai
 import api from "../api/axios";
 import { formatCurrency } from "../utils/format";
 
-const pieColors = ["#ffffff", "#d4d4d8", "#a1a1aa", "#71717a", "#52525b"];
+const pieColors = ["#ff6b6b", "#4ecdc4", "#45b7d1", "#f39c12", "#9b59b6", "#1abc9c", "#e74c3c", "#3498db", "#2ecc71", "#f1c40f"];
 
 const Analytics = () => {
   const [filters, setFilters] = useState({ startDate: "", endDate: "", category: "" });
@@ -55,7 +55,7 @@ const Analytics = () => {
               <XAxis dataKey="month" stroke="#9ca3af" />
               <YAxis stroke="#9ca3af" />
               <Tooltip />
-              <Bar dataKey="amount" fill="#ffffff" />
+              <Bar dataKey="amount" fill="#3498db" radius={[8, 8, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -82,8 +82,8 @@ const Analytics = () => {
             <XAxis dataKey="month" stroke="#9ca3af" />
             <YAxis stroke="#9ca3af" />
             <Tooltip />
-            <Line dataKey="income" stroke="#ffffff" />
-            <Line dataKey="expense" stroke="#9ca3af" />
+            <Line dataKey="income" stroke="#2ecc71" strokeWidth={3} dot={{ fill: '#2ecc71', r: 5 }} />
+            <Line dataKey="expense" stroke="#e74c3c" strokeWidth={3} dot={{ fill: '#e74c3c', r: 5 }} />
           </LineChart>
         </ResponsiveContainer>
       </div>

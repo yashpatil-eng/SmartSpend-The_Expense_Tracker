@@ -1,8 +1,12 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { useLanguage } from "../context/LanguageContext";
+import { getTranslation } from "../utils/translations";
 
 const Navbar = () => {
   const { user, logout } = useAuth();
+  const { language } = useLanguage();
+  const t = (key) => getTranslation(key, language);
   const navigate = useNavigate();
 
   const onLogout = () => {
@@ -19,25 +23,35 @@ const Navbar = () => {
         <div className="flex items-center gap-4">
           {user ? (
             <>
-              <Link className="text-sm text-white transition hover:text-gray-300" to="/dashboard">Dashboard</Link>
-              <Link className="text-sm text-white transition hover:text-gray-300" to="/analytics">Analytics</Link>
-              <Link className="text-sm text-white transition hover:text-gray-300" to="/ai-insights">AI</Link>
-              <Link className="text-sm text-white transition hover:text-gray-300" to="/settings">Settings</Link>
+              <Link className="text-sm text-white transition hover:text-gray-300" to="/dashboard">{t("dashboard")}</Link>
+              <Link className="text-sm text-white transition hover:text-gray-300" to="/analytics">{t("analytics")}</Link>
+              <Link className="text-sm text-white transition hover:text-gray-300" to="/ai-insights">{t("ai_insights")}</Link>
+              <Link className="text-sm text-white transition hover:text-gray-300" to="/settings">{t("settings")}</Link>
+              {user.role === "admin" && (
+                <Link className="text-sm text-blue-400 transition hover:text-blue-300 font-semibold" to="/admin">
+                  {t("admin_panel")}
+                </Link>
+              )}
               <span className="hidden text-sm text-gray-400 sm:block">{user.name}</span>
+              {user.role === "admin" && (
+                <span className="hidden text-xs font-bold px-2 py-1 bg-blue-600 text-blue-100 rounded sm:block">
+                  🔐 Admin
+                </span>
+              )}
               <button
                 className="btn-secondary text-sm"
                 onClick={onLogout}
               >
-                Logout
+                {t("logout")}
               </button>
             </>
           ) : (
             <>
               <Link className="text-sm text-white transition hover:text-gray-300" to="/login">
-                Login
+                {t("login")}
               </Link>
               <Link className="btn-primary text-sm" to="/register">
-                Register
+                {t("register")}
               </Link>
             </>
           )}

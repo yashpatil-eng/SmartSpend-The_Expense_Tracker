@@ -1,4 +1,5 @@
 import Transaction from "../models/Transaction.js";
+import { buildTransactionQuery, summarizeTransactions } from "../utils/transactionHelpers.js";
 
 const normalizeItems = (items) => {
   if (!items) return [];
@@ -43,22 +44,36 @@ export const addTransaction = async (req, res) => {
 };
 
 export const getTransactions = async (req, res) => {
-  const transactions = await Transaction.find({ userId: req.user._id }).sort({ date: -1, createdAt: -1 });
+  const { startDate, endDate, category, type, page, limit } = req.query;
+  const query = buildTransactionQuery({
+    userId: req.user._id,
+    startDate,
+    endDate,
+    category,
+    type
+  });
 
-  const totals = transactions.reduce(
-    (acc, tx) => {
-      if (tx.type === "income") acc.totalIncome += tx.amount;
-      if (tx.type === "expense") acc.totalExpense += tx.amount;
-      return acc;
-    },
-    { totalIncome: 0, totalExpense: 0 }
-  );
+  const pageNumber = Math.max(1, Number(page) || 1);
+  const pageSize = Math.max(0, Number(limit) || 0);
+
+  const allMatchingTransactions = await Transaction.find(query);
+  const totals = summarizeTransactions(allMatchingTransactions);
+
+  const transactionQuery = Transaction.find(query).sort({ date: -1, createdAt: -1 });
+  if (pageSize > 0) {
+    transactionQuery.skip((pageNumber - 1) * pageSize).limit(pageSize);
+  }
+
+  const transactions = await transactionQuery;
 
   return res.json({
     transactions,
     summary: {
       ...totals,
-      totalBalance: totals.totalIncome - totals.totalExpense
+      totalBalance: totals.totalIncome - totals.totalExpense,
+      page: pageNumber,
+      limit: pageSize,
+      count: transactions.length
     }
   });
 };

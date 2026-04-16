@@ -9,7 +9,7 @@ const TrendLineChart = ({ data }) => (
         <XAxis dataKey="month" stroke="#9ca3af" />
         <YAxis stroke="#9ca3af" />
         <Tooltip />
-        <Line type="monotone" dataKey="total" stroke="#ffffff" strokeWidth={3} />
+        <Line type="monotone" dataKey="total" stroke="#9b59b6" strokeWidth={3} dot={{ fill: '#9b59b6', r: 5 }} />
       </LineChart>
     </ResponsiveContainer>
   </div>

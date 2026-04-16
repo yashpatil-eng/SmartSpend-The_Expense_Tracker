@@ -14,7 +14,7 @@ const RegisterPage = () => {
   const { register, loginWithGoogle, sendOtp, verifyOtp } = useAuth();
   const navigate = useNavigate();
   const [method, setMethod] = useState("email");
-  const [role, setRole] = useState("personal");
+  const [accountRole, setAccountRole] = useState("personal");
   const [form, setForm] = useState({
     name: "",
     ownerName: "",
@@ -22,7 +22,8 @@ const RegisterPage = () => {
     email: "",
     mobile: "",
     gstNumber: "",
-    password: ""
+    password: "",
+    adminSecret: ""
   });
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
@@ -37,7 +38,7 @@ const RegisterPage = () => {
     setLoading((prev) => ({ ...prev, email: true }));
     try {
       const payload = {
-        role,
+        accountRole,
         email: form.email,
         mobile: form.mobile,
         password: form.password,
@@ -74,8 +75,7 @@ const RegisterPage = () => {
       setLoading((prev) => ({ ...prev, otp: true }));
       const response = await sendOtp(form.mobile);
       setOtpSent(true);
-      const devOtpHint = response.devOtp ? ` (Dev OTP: ${response.devOtp})` : "";
-      showToast("success", `OTP sent successfully${devOtpHint}`);
+      showToast("success", "OTP sent successfully");
     } catch (err) {
       showToast("error", err.response?.data?.message || "Failed to send OTP");
     } finally {
@@ -89,9 +89,9 @@ const RegisterPage = () => {
       const user = await verifyOtp({
         mobile: form.mobile,
         otp,
-        role,
+        accountRole,
         email: form.email || undefined,
-        name: role === "organization" ? form.ownerName : form.name
+        name: accountRole === "organization" ? form.ownerName : form.name
       });
       showToast("success", "Mobile signup successful");
       onAuthSuccess(user);
@@ -106,7 +106,9 @@ const RegisterPage = () => {
     <div className="surface-card mx-auto mt-10 max-w-md p-6">
       <h1 className="mb-4 text-2xl font-bold">Create Account</h1>
       <AuthToast toast={toast} onClose={() => setToast({ type: "", message: "" })} />
-      <RoleSelector role={role} onChange={setRole} />
+      
+      <RoleSelector role={accountRole} onChange={setAccountRole} />
+      
       <div className="mt-3 space-y-2">
         <AuthOptionButton label="Continue with Google" icon="G" active={method === "google"} onClick={() => setMethod("google")} />
         <AuthOptionButton label="Continue with Mobile Number" icon={<Smartphone size={16} />} active={method === "mobile"} onClick={() => setMethod("mobile")} />
@@ -125,7 +127,7 @@ const RegisterPage = () => {
       ) : null}
       {method === "email" ? (
         <form onSubmit={handleSubmit} className="space-y-3">
-          {role === "personal" ? (
+          {accountRole === "personal" ? (
             <PersonalSignupFields form={form} onChange={(key, value) => setForm((p) => ({ ...p, [key]: value }))} />
           ) : (
             <OrganizationSignupFields form={form} onChange={(key, value) => setForm((p) => ({ ...p, [key]: value }))} />
@@ -147,7 +149,7 @@ const RegisterPage = () => {
       ) : null}
       {method === "mobile" ? (
         <div className="space-y-3">
-          {role === "personal" ? (
+          {accountRole === "personal" ? (
             <PersonalSignupFields form={form} onChange={(key, value) => setForm((p) => ({ ...p, [key]: value }))} />
           ) : (
             <OrganizationSignupFields form={form} onChange={(key, value) => setForm((p) => ({ ...p, [key]: value }))} />

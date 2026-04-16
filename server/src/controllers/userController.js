@@ -23,6 +23,26 @@ export const updateUser = async (req, res) => {
   return res.json({ user });
 };
 
+export const uploadAvatar = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    const avatarPath = `/uploads/${req.file.filename}`;
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { avatar: avatarPath },
+      { new: true }
+    ).select("-password");
+
+    return res.json({ user, message: "Avatar uploaded successfully" });
+  } catch (error) {
+    console.error("Avatar upload error:", error);
+    res.status(500).json({ message: "Avatar upload failed" });
+  }
+};
+
 export const deleteUser = async (req, res) => {
   await Promise.all([
     User.findByIdAndDelete(req.user._id),
