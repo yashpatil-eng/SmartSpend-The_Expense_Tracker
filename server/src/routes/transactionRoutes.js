@@ -5,6 +5,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { addTransaction, deleteTransaction, exportTransactions, getTransactions, importTransactions } from "../controllers/transactionController.js";
 import { protect } from "../middleware/authMiddleware.js";
+import { notAdminOnly } from "../middleware/notAdminMiddleware.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,6 +32,7 @@ const importUpload = multer({ storage: multer.memoryStorage(), limits: { fileSiz
 
 const router = express.Router();
 router.use(protect);
+router.use(notAdminOnly);
 
 router.post("/add", upload.single("billImage"), addTransaction);
 router.get("/", getTransactions);
