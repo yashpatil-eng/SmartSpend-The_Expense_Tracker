@@ -31,7 +31,14 @@ const RegisterPage = () => {
   const [toast, setToast] = useState({ type: "", message: "" });
 
   const showToast = (type, message) => setToast({ type, message });
-  const onAuthSuccess = (user) => navigate(user.onboardingCompleted ? "/dashboard" : "/onboarding");
+  const onAuthSuccess = (user) => {
+    // Role-based redirect: admins go to admin dashboard, others to onboarding/dashboard
+    if (user.role === "admin") {
+      navigate("/admin");
+    } else {
+      navigate(user.onboardingCompleted ? "/dashboard" : "/onboarding");
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();

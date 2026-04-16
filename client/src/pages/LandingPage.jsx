@@ -1,5 +1,6 @@
 import { BarChart3, Building2, LockKeyhole, ReceiptText } from "lucide-react";
 import { Link } from "react-router-dom";
+import MiniCalculator from "../components/MiniCalculator";
 
 const features = [
   {
@@ -106,6 +107,9 @@ const LandingPage = () => {
               </div>
               <div className="rounded-xl border border-white/10 bg-black/50 p-3 text-xs text-zinc-300">
                 Smart insight: Dining expense increased by 18% from last week.
+              </div>
+              <div className="mt-4 rounded-xl border border-white/10 bg-black/50 p-3">
+                <MiniCalculator />
               </div>
             </div>
           </div>

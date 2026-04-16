@@ -87,7 +87,8 @@ export const register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const resolvedName = accountRole === "organization" ? ownerName : name || fullName;
 
-    // Check if email is an admin email - auto-assign role
+    // ⚠️ SECURITY: Role assignment ONLY through isAdminEmail check
+    // Users can NEVER manually set admin role through signup
     const userRole = isAdminEmail(normalizedEmail) ? "admin" : "user";
 
     const user = await User.create({
@@ -95,7 +96,7 @@ export const register = async (req, res) => {
       email: normalizedEmail,
       password: hashedPassword,
       mobile: normalizedMobile,
-      role: userRole,
+      role: userRole, // ✓ Forced through isAdminEmail check only
       accountRole: accountRole,
       organizationName: accountRole === "organization" ? organizationName : undefined,
       gstNumber: accountRole === "organization" ? gstNumber : undefined
@@ -299,13 +300,15 @@ export const verifyOtp = async (req, res) => {
         await user.save();
       } else {
         const normalizedEmail = email ? email.toLowerCase() : undefined;
+        // ⚠️ SECURITY: Role assignment ONLY through isAdminEmail check
+        // Users can NEVER manually set admin role through signup
         const userRole = normalizedEmail && isAdminEmail(normalizedEmail) ? "admin" : "user";
         
         user = await User.create({
           name: name || `User ${normalizedMobile.slice(-4)}`,
           email: normalizedEmail,
           mobile: normalizedMobile,
-          role: userRole,
+          role: userRole, // ✓ Forced through isAdminEmail check only
           accountRole
         });
       }

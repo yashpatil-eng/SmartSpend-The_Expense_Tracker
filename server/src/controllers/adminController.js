@@ -1,5 +1,65 @@
+import bcrypt from "bcryptjs";
 import User from "../models/User.js";
 import Transaction from "../models/Transaction.js";
+import { generateToken } from "../utils/token.js";
+
+// Admin Creation - Only accessible by authenticated admin users
+export const createAdmin = async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+
+    // Validate input
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "Name, email, and password are required" });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    }
+
+    // Normalize email
+    const normalizedEmail = email.toLowerCase();
+
+    // Check if email already exists
+    const existingUser = await User.findOne({ email: normalizedEmail });
+    if (existingUser) {
+      return res.status(409).json({ message: "Email already in use" });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create new admin user
+    const newAdmin = await User.create({
+      name: name.trim(),
+      email: normalizedEmail,
+      password: hashedPassword,
+      role: "admin",
+      accountRole: "personal",
+      onboardingCompleted: true,
+      isActive: true,
+      mobile: `admin_${Date.now()}` // Temporary placeholder
+    });
+
+    console.log(`✓ Admin created successfully: ${normalizedEmail} by ${req.user.email}`);
+
+    return res.status(201).json({
+      message: "Admin created successfully",
+      admin: {
+        id: newAdmin._id,
+        name: newAdmin.name,
+        email: newAdmin.email,
+        role: newAdmin.role
+      }
+    });
+  } catch (error) {
+    console.error("Create admin error:", error);
+    if (error.code === 11000) {
+      return res.status(409).json({ message: "Email already in use" });
+    }
+    res.status(500).json({ message: "Failed to create admin" });
+  }
+};
 
 // User Management
 export const getAllUsers = async (req, res) => {

@@ -2,6 +2,7 @@ import express from "express";
 import { protect } from "../middleware/authMiddleware.js";
 import { adminOnly } from "../middleware/adminMiddleware.js";
 import {
+  createAdmin,
   getAllUsers,
   deleteUser,
   toggleUserStatus,
@@ -15,6 +16,9 @@ const router = express.Router();
 
 // All admin routes require authentication and admin role
 router.use(protect, adminOnly);
+
+// Admin Management
+router.post("/create-admin", createAdmin);
 
 // User Management
 router.get("/users", getAllUsers);
