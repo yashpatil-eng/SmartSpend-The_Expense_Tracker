@@ -12,15 +12,16 @@ export const protect = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // ✅ Handle admin token (id = "admin", role = "admin")
-    if (decoded.id === "admin" && decoded.role === "admin") {
+    // ✅ Handle SUPER_ADMIN token (id = "super-admin", role = "SUPER_ADMIN")
+    if (decoded.id === "super-admin" && decoded.role === "SUPER_ADMIN") {
       req.user = {
-        _id: "admin",
-        id: "admin",
-        name: "Administrator",
+        _id: "super-admin",
+        id: "super-admin",
+        name: "System Administrator",
         email: "admin@gmail.com",
-        role: "admin",
-        accountRole: "admin",
+        role: "user", // Kept as "user" for backward compatibility
+        orgRole: "SUPER_ADMIN", // ✅ Set orgRole for middleware checks
+        accountRole: "personal",
         mobile: "",
         organizationName: "",
         gstNumber: "",

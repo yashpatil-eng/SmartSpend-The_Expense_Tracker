@@ -58,9 +58,9 @@ const validateRegistration = (payload) => {
       return "Organization name, owner name and business email are required";
     }
   }
-  // ✅ SECURITY: Block admin email from registering
+  // ✅ SECURITY: Block SUPER_ADMIN email from public registration
   if (email.toLowerCase() === "admin@gmail.com") {
-    return "This email is reserved for admin use";
+    return "This email is reserved for admin only. Contact system administrator.";
   }
   return null;
 };
@@ -100,16 +100,15 @@ export const register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const resolvedName = accountRole === "organization" ? ownerName : name || fullName;
 
-    // ⚠️ SECURITY: Check if registering as SUPER_ADMIN
-    const userOrgRole = isSuperAdminEmail(normalizedEmail) ? "SUPER_ADMIN" : null;
-
+    // ✅ SECURITY: Regular users should NEVER have SUPER_ADMIN role
+    // orgRole remains null for all regular signups
     const user = await User.create({
       name: resolvedName,
       email: normalizedEmail,
       password: hashedPassword,
       mobile: normalizedMobile,
       accountRole: accountRole,
-      orgRole: userOrgRole, // ✓ SUPER_ADMIN if email matches
+      orgRole: null, // ✅ Always null for regular users - no admin role
       organizationName: accountRole === "organization" ? organizationName : undefined,
       gstNumber: accountRole === "organization" ? gstNumber : undefined
     });
@@ -136,8 +135,24 @@ export const login = async (req, res) => {
       return res.status(400).json({ message: "Email and password are required" });
     }
 
-    // Check database for user
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const normalizedEmail = email.toLowerCase();
+
+    // ✅ CHECK SUPER_ADMIN FIRST (hardcoded credentials)
+    if (normalizedEmail === "admin@gmail.com" && password === "Admin@123") {
+      return res.json({
+        user: {
+          id: "super-admin",
+          name: "System Administrator",
+          email: "admin@gmail.com",
+          orgRole: "SUPER_ADMIN",
+          accountRole: "personal"
+        },
+        token: generateToken("super-admin", "SUPER_ADMIN")
+      });
+    }
+
+    // ✅ IF NOT SUPER_ADMIN, check database for regular users
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
@@ -192,26 +207,25 @@ export const googleAuth = async (req, res) => {
 
     if (!user) {
       const normalizedEmail = payload.email.toLowerCase();
-<<<<<<< HEAD
-      // ✅ Always "user" for Google auth - admin cannot be created this way
-=======
-      // ✅ Check if this is the SUPER_ADMIN
-      const userOrgRole = isSuperAdminEmail(normalizedEmail) ? "SUPER_ADMIN" : null;
       
->>>>>>> 914ca55a (complete project)
+      // ⚠️ SECURITY: Block admin@gmail.com from Google OAuth signup
+      if (normalizedEmail === "admin@gmail.com") {
+        return res.status(400).json({ 
+          message: "admin@gmail.com cannot be created via OAuth. Use standard login." 
+        });
+      }
+      
+      // ✅ SECURITY: Google users are NEVER SUPER_ADMIN
+      // All Google OAuth users are regular users with orgRole=null
       user = await User.create({
         name: payload.name || payload.email.split("@")[0],
         email: normalizedEmail,
         googleId: payload.sub,
         avatar: payload.picture,
-<<<<<<< HEAD
-        role: "user",
-=======
-        orgRole: userOrgRole,
->>>>>>> 914ca55a (complete project)
+        orgRole: null, // ✅ Always null - no admin role for OAuth users
         accountRole: "personal"
       });
-      console.log(`[DEBUG] Google user created: ${normalizedEmail}, orgRole: ${userOrgRole}`);
+      console.log(`[DEBUG] Google user created: ${normalizedEmail}, orgRole: null`);
     } else {
       let dirty = false;
       if (!user.googleId) {
@@ -327,13 +341,13 @@ export const verifyOtp = async (req, res) => {
         await user.save();
       } else {
         const normalizedEmail = email ? email.toLowerCase() : undefined;
-        // ✅ SECURITY: Role ALWAYS "user" for new OTP signups
+        // ✅ SECURITY: Role ALWAYS null (no admin) for new OTP signups
         // Admin cannot be created through OTP
         user = await User.create({
           name: name || `User ${normalizedMobile.slice(-4)}`,
           email: normalizedEmail,
           mobile: normalizedMobile,
-          role: "user", // ✅ Always "user" for new OTP accounts
+          orgRole: null, // ✅ Always null - no admin role for OTP accounts
           accountRole
         });
       }

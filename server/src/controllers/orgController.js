@@ -204,37 +204,29 @@ export const joinOrganizationByCode = async (req, res) => {
       return res.status(400).json({ message: "User already belongs to this organization" });
     }
 
-    // ✅ DEBUG: Log user's current role before joining
-    console.log(`[DEBUG] Before Join - User: ${req.user.email}, orgRole: ${req.user.orgRole}`);
-
-    // ✅ SECURITY: Preserve existing roles (SUPER_ADMIN, ORG_ADMIN)
-    // Regular users join with no orgRole (orgRole stays null)
-    let userOrgRole = req.user.orgRole;
+    // ⚠️ CRITICAL SECURITY: Users joining via org code are ALWAYS regular users
+    // They MUST have orgRole: null (no admin access whatsoever)
+    // No exceptions, no conditions - joining = regular user only
     
-    if (userOrgRole === "SUPER_ADMIN" || userOrgRole === "ORG_ADMIN") {
-      // ✓ Preserve SUPER_ADMIN and ORG_ADMIN roles
-      console.log(`[DEBUG] Preserving existing role: ${userOrgRole}`);
-    } else {
-      // ✓ Regular users get no orgRole (will use legacy role for permissions)
-      userOrgRole = null;
-      console.log(`[DEBUG] Regular user joining organization`);
-    }
+    console.log(`[DEBUG] User ${req.user.email} joining organization ${organization.name} via code`);
+    console.log(`[DEBUG] ⚠️ SECURITY: Force setting orgRole to null (NO ADMIN - EVER)`);
 
-    // ✅ Update user with organization
+    // ✅ Update user with organization - ALWAYS null role for org code joins
     await User.findByIdAndUpdate(req.user._id, {
       organizationId: organization._id,
-      orgRole: userOrgRole  // ✓ Use preserved role or null for regular users
+      orgRole: null  // ⚠️ FORCED: Always null - absolutely NO ADMIN ACCESS
     });
 
-    console.log(`[DEBUG] After Join - User: ${req.user.email}, orgRole: ${userOrgRole}`);
-
-    // Add user to organization's users list
+    // ✅ Add user ONLY to users list - NEVER to admins list
     await Organization.findByIdAndUpdate(organization._id, {
       $addToSet: { users: req.user._id }
+      // ⚠️ CRITICAL: NO $addToSet for admins - never add to admins list
     });
 
+    console.log(`[DEBUG] ✓ User ${req.user.email} joined as REGULAR USER (orgRole=null)`);
+
     res.json({
-      message: "Successfully joined organization",
+      message: "Successfully joined organization as regular user",
       organization: {
         _id: organization._id,
         name: organization.name,

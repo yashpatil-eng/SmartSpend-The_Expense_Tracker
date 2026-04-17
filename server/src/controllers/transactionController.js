@@ -18,7 +18,7 @@ const normalizeItems = (items) => {
 };
 
 // ✅ Helper function to create transaction with remaining amount logic
-const createTransactionWithRemaining = async (userId, transactionData) => {
+const createTransactionWithRemaining = async (userId, organizationId, transactionData) => {
   const { amount, type, category, notes, date, items, billImage } = transactionData;
 
   // Calculate items total (breakdown)
@@ -29,9 +29,10 @@ const createTransactionWithRemaining = async (userId, transactionData) => {
   // Calculate remaining amount
   const remainingAmount = Number(amount) - itemsTotal;
 
-  // Create main transaction
+  // ✅ Create main transaction with organizationId
   const mainTransaction = await Transaction.create({
     userId,
+    organizationId, // ✅ REQUIRED: multi-tenant field
     amount: Number(amount),
     type,
     category,
@@ -44,10 +45,13 @@ const createTransactionWithRemaining = async (userId, transactionData) => {
   let remainingTransaction = null;
   let message = "Transaction added successfully";
 
-  // ✅ Create remaining transaction if remaining > 0
-  if (remainingAmount > 0) {
+  // ✅ Create remaining transaction ONLY if:
+  // 1. There are items (itemsTotal > 0)
+  // 2. There's actually a remaining amount after items
+  if (items.length > 0 && remainingAmount > 0) {
     remainingTransaction = await Transaction.create({
       userId,
+      organizationId, // ✅ REQUIRED: multi-tenant field
       amount: remainingAmount,
       type,
       category: "Other",
@@ -99,7 +103,7 @@ export const addTransaction = async (req, res) => {
   }
 
   try {
-    const result = await createTransactionWithRemaining(req.user._id, {
+    const result = await createTransactionWithRemaining(req.user._id, req.user.organizationId, {
       amount: mainAmount,
       type,
       category,
