@@ -17,12 +17,12 @@ const AdminPage = () => {
     navigate("/");
   };
 
-  if (user?.role !== "admin") {
+  if (user?.orgRole !== "SUPER_ADMIN" && user?.orgRole !== "MANAGER" && user?.orgRole !== "ORG_ADMIN") {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-500">Access Denied</h1>
-          <p className="text-gray-400">You don't have permission to access this page.</p>
+          <p className="text-gray-400">You don't have admin permission to access this page.</p>
         </div>
       </div>
     );

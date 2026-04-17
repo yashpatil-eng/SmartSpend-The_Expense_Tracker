@@ -2,18 +2,66 @@ import bcrypt from "bcryptjs";
 import User from "../models/User.js";
 import Transaction from "../models/Transaction.js";
 import { generateToken } from "../utils/token.js";
+import { isSuperAdminEmail } from "../config/admins.js";
 
-// ✅ Admin Creation - DISABLED
-// Admin users cannot be created in the database
-// There is only ONE hardcoded admin: admin@gmail.com / Admin@123
+// ✅ Admin Creation
+// Creates a new admin user with multi-tenant admin role
 export const createAdmin = async (req, res) => {
-  return res.status(403).json({
-    message: "Admin creation is disabled. There is only one hardcoded admin in the system.",
-    hardcodedAdmin: {
-      email: "admin@gmail.com",
-      password: "Admin@123 (stored in config/admins.js)"
+  try {
+    const { name, email, password } = req.body;
+
+    // Validate input
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "Name, email, and password are required" });
     }
-  });
+
+    if (password.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    }
+
+    // Normalize email
+    const normalizedEmail = email.toLowerCase();
+
+    // Check if email already exists
+    const existingUser = await User.findOne({ email: normalizedEmail });
+    if (existingUser) {
+      return res.status(409).json({ message: "Email already in use" });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // ✅ Create new admin user with multi-tenant admin role
+    const newAdmin = await User.create({
+      name: name.trim(),
+      email: normalizedEmail,
+      password: hashedPassword,
+      orgRole: "ORG_ADMIN", // ✅ Multi-tenant admin role
+      accountRole: "personal",
+      onboardingCompleted: true,
+      isActive: true,
+      mobile: `admin_${Date.now()}` // Temporary placeholder
+    });
+
+    console.log(`✅ Admin created successfully: ${normalizedEmail} by ${req.user.email}`);
+    console.log(`✅ Admin orgRole set to: ${newAdmin.orgRole}`);
+
+    return res.status(201).json({
+      message: "Admin created successfully",
+      admin: {
+        id: newAdmin._id,
+        name: newAdmin.name,
+        email: newAdmin.email,
+        orgRole: newAdmin.orgRole // ✅ Return orgRole in response
+      }
+    });
+  } catch (error) {
+    console.error("Create admin error:", error);
+    if (error.code === 11000) {
+      return res.status(409).json({ message: "Email already in use" });
+    }
+    res.status(500).json({ message: "Failed to create admin" });
+  }
 };
 
 // User Management
@@ -36,7 +84,13 @@ export const deleteUser = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // ✅ No admin role in database anymore, only regular users
+    // Prevent deletion of admins except by other admins
+    if (user.orgRole && (user.orgRole === "SUPER_ADMIN" || user.orgRole === "ORG_ADMIN" || user.orgRole === "MANAGER")) {
+      if (req.user._id.toString() !== id && req.user.orgRole !== "SUPER_ADMIN") {
+        return res.status(403).json({ message: "Cannot delete other admin accounts" });
+      }
+    }
+
     // Delete user's transactions
     await Transaction.deleteMany({ userId: id });
 
@@ -110,9 +164,11 @@ export const deleteTransaction = async (req, res) => {
 // Dashboard Stats
 export const getDashboardStats = async (req, res) => {
   try {
-    const totalUsers = await User.countDocuments({ role: "user" });
-    const totalAdmins = await User.countDocuments({ role: "admin" });
-    const activeUsers = await User.countDocuments({ isActive: true, role: "user" });
+    const totalUsers = await User.countDocuments();
+    const totalAdmins = await User.countDocuments({ 
+      orgRole: { $in: ["SUPER_ADMIN", "ORG_ADMIN", "MANAGER"] } 
+    });
+    const activeUsers = await User.countDocuments({ isActive: true });
 
     const totalTransactions = await Transaction.countDocuments();
 

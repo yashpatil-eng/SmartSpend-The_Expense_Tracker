@@ -4,7 +4,7 @@ import { OAuth2Client } from "google-auth-library";
 import twilio from "twilio";
 import User from "../models/User.js";
 import { generateToken } from "../utils/token.js";
-import { isHardcodedAdmin } from "../config/admins.js";
+import { isSuperAdminEmail } from "../config/admins.js";
 
 const googleClient = process.env.GOOGLE_CLIENT_ID ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID) : null;
 const otpStore = new Map();
@@ -15,19 +15,28 @@ const twilioClient =
 
 const normalizeMobile = (mobile = "") => mobile.replace(/\D/g, "");
 
-const sanitizeUser = (user) => ({
-  id: user._id,
-  name: user.name,
-  email: user.email,
-  mobile: user.mobile,
-  role: user.role,
-  accountRole: user.accountRole,
-  organizationName: user.organizationName,
-  gstNumber: user.gstNumber,
-  avatar: user.avatar,
-  onboardingCompleted: user.onboardingCompleted,
-  isActive: user.isActive
-});
+const sanitizeUser = (user) => {
+  const sanitized = {
+    id: user._id,
+    name: user.name,
+    email: user.email,
+    mobile: user.mobile,
+    accountRole: user.accountRole,
+    organizationName: user.organizationName,
+    gstNumber: user.gstNumber,
+    avatar: user.avatar,
+    onboardingCompleted: user.onboardingCompleted,
+    isActive: user.isActive,
+    // Multi-tenant fields
+    orgRole: user.orgRole,
+    organizationId: user.organizationId,
+    budget: user.budget,
+    budgetPeriod: user.budgetPeriod
+  };
+  // ✅ DEBUG: Log user type and role
+  console.log(`[DEBUG] User: ${sanitized.email}, accountRole: ${sanitized.accountRole}, orgRole: ${sanitized.orgRole}`);
+  return sanitized;
+};
 
 const validateRegistration = (payload) => {
   const { accountRole, password, email, mobile, name, organizationName, ownerName } = payload;
@@ -91,15 +100,16 @@ export const register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const resolvedName = accountRole === "organization" ? ownerName : name || fullName;
 
-    // ✅ SECURITY: Role ALWAYS "user" for database users
-    // Admin is NOT stored in database, only hardcoded
+    // ⚠️ SECURITY: Check if registering as SUPER_ADMIN
+    const userOrgRole = isSuperAdminEmail(normalizedEmail) ? "SUPER_ADMIN" : null;
+
     const user = await User.create({
       name: resolvedName,
       email: normalizedEmail,
       password: hashedPassword,
       mobile: normalizedMobile,
-      role: "user", // ✅ Always "user" for database records
       accountRole: accountRole,
+      orgRole: userOrgRole, // ✓ SUPER_ADMIN if email matches
       organizationName: accountRole === "organization" ? organizationName : undefined,
       gstNumber: accountRole === "organization" ? gstNumber : undefined
     });
@@ -126,28 +136,7 @@ export const login = async (req, res) => {
       return res.status(400).json({ message: "Email and password are required" });
     }
 
-    // ✅ CHECK HARDCODED ADMIN FIRST
-    // Admin is NOT in database, only hardcoded
-    if (isHardcodedAdmin(email, password)) {
-      return res.json({
-        user: {
-          id: "admin",
-          name: "Administrator",
-          email: "admin@gmail.com",
-          role: "admin",
-          accountRole: "admin",
-          mobile: "",
-          organizationName: "",
-          gstNumber: "",
-          avatar: "",
-          onboardingCompleted: true,
-          isActive: true
-        },
-        token: generateToken("admin", "admin") // ✅ Role "admin" in token
-      });
-    }
-
-    // ✅ THEN CHECK DATABASE FOR REGULAR USERS
+    // Check database for user
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
@@ -161,6 +150,10 @@ export const login = async (req, res) => {
     if (!passwordMatched) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
+
+    // ✅ DEBUG: Log user info before returning
+    console.log(`[DEBUG] Login successful for: ${user.email}`);
+    console.log(`[DEBUG] accountRole: ${user.accountRole}, orgRole: ${user.orgRole}`);
 
     return res.json({
       user: sanitizeUser(user),
@@ -199,15 +192,26 @@ export const googleAuth = async (req, res) => {
 
     if (!user) {
       const normalizedEmail = payload.email.toLowerCase();
+<<<<<<< HEAD
       // ✅ Always "user" for Google auth - admin cannot be created this way
+=======
+      // ✅ Check if this is the SUPER_ADMIN
+      const userOrgRole = isSuperAdminEmail(normalizedEmail) ? "SUPER_ADMIN" : null;
+      
+>>>>>>> 914ca55a (complete project)
       user = await User.create({
         name: payload.name || payload.email.split("@")[0],
         email: normalizedEmail,
         googleId: payload.sub,
         avatar: payload.picture,
+<<<<<<< HEAD
         role: "user",
+=======
+        orgRole: userOrgRole,
+>>>>>>> 914ca55a (complete project)
         accountRole: "personal"
       });
+      console.log(`[DEBUG] Google user created: ${normalizedEmail}, orgRole: ${userOrgRole}`);
     } else {
       let dirty = false;
       if (!user.googleId) {
@@ -346,5 +350,11 @@ export const verifyOtp = async (req, res) => {
 };
 
 export const me = async (req, res) => {
-  return res.json({ user: req.user });
+  try {
+    const user = await User.findById(req.user._id).populate("organizationId", "name orgCode");
+    return res.json({ user: sanitizeUser(user) });
+  } catch (error) {
+    console.error("Me endpoint error:", error);
+    return res.json({ user: sanitizeUser(req.user) });
+  }
 };

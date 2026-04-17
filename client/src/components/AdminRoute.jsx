@@ -19,7 +19,8 @@ const AdminRoute = ({ children }) => {
     return <Navigate to="/login" />;
   }
 
-  if (user.role !== "admin") {
+  // ✅ Check for admin roles (SUPER_ADMIN, MANAGER, or ORG_ADMIN)
+  if (user.orgRole !== "SUPER_ADMIN" && user.orgRole !== "MANAGER" && user.orgRole !== "ORG_ADMIN") {
     return <Navigate to="/dashboard" />;
   }
 

@@ -4,8 +4,12 @@ import TransactionList from "../components/dashboard/TransactionList";
 import CategoryPieChart from "../components/CategoryPieChart";
 import MonthlyBarChart from "../components/MonthlyBarChart";
 import LoadingSpinner from "../components/auth/LoadingSpinner";
+import JoinOrganizationSection from "../components/dashboard/JoinOrganizationSection";
+import OrganizationPanel from "../components/dashboard/OrganizationPanel";
 import { formatCurrency } from "../utils/format";
 import { buildFilterParams } from "../utils/transactionUtils";
+import { useAuth } from "../hooks/useAuth";
+import { useOrganization } from "../hooks/useOrganization";
 import {
   fetchTransactions,
   createTransaction,
@@ -14,6 +18,8 @@ import {
 } from "../services/transactionService";
 
 const Dashboard = () => {
+  const { user, refreshUser } = useAuth();
+  const { fetchMyOrganization } = useOrganization();
   const [transactions, setTransactions] = useState([]);
   const [summary, setSummary] = useState({ totalBalance: 0, totalIncome: 0, totalExpense: 0 });
   const [charts, setCharts] = useState({ monthlyExpenses: [], categorySpending: [] });
@@ -34,6 +40,9 @@ const Dashboard = () => {
     setError("");
     setLoading(true);
     try {
+      // Load organization data first
+      await fetchMyOrganization();
+
       const params = buildFilterParams(filters);
       const [transactionsRes, chartRes] = await Promise.all([
         fetchTransactions(params),
@@ -109,6 +118,10 @@ const Dashboard = () => {
           </div>
         </div>
       )}
+
+      <JoinOrganizationSection user={user} onJoinSuccess={refreshUser} />
+
+      <OrganizationPanel />
 
       <div className="surface-card p-4">
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">

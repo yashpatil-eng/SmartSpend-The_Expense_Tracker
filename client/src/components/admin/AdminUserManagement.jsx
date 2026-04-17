@@ -54,7 +54,9 @@ const AdminUserManagement = () => {
       user.mobile.includes(searchTerm);
 
     const matchesRole =
-      filterRole === "all" || user.role === filterRole;
+      filterRole === "all" || 
+      (filterRole === "admin" && (user.orgRole === "SUPER_ADMIN" || user.orgRole === "MANAGER" || user.orgRole === "ORG_ADMIN")) ||
+      (filterRole === "user" && !user.orgRole);
 
     return matchesSearch && matchesRole;
   });
@@ -112,11 +114,11 @@ const AdminUserManagement = () => {
                 <td className="py-3 px-4 text-sm text-gray-300">{user.email}</td>
                 <td className="py-3 px-4">
                   <span className={`px-2 py-1 rounded text-xs ${
-                    user.role === "admin"
+                    (user.orgRole === "SUPER_ADMIN" || user.orgRole === "MANAGER" || user.orgRole === "ORG_ADMIN")
                       ? "bg-purple-900 text-purple-200"
                       : "bg-blue-900 text-blue-200"
                   }`}>
-                    {user.role === "admin" ? "🔐 Admin" : "👤 User"}
+                    {(user.orgRole === "SUPER_ADMIN" || user.orgRole === "MANAGER" || user.orgRole === "ORG_ADMIN") ? "🔐 Admin" : "👤 User"}
                   </span>
                 </td>
                 <td className="py-3 px-4">

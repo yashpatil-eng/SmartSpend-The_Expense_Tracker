@@ -83,6 +83,11 @@ export const addTransaction = async (req, res) => {
     return res.status(400).json({ message: "Amount must be greater than 0" });
   }
 
+  // Check if user belongs to an organization
+  if (!req.user.organizationId) {
+    return res.status(403).json({ message: "User must belong to an organization to add transactions" });
+  }
+
   const items = normalizeItems(req.body.items);
   const itemsTotal = items.length
     ? items.reduce((sum, item) => sum + Number(item.price), 0)
@@ -117,13 +122,40 @@ export const addTransaction = async (req, res) => {
 
 export const getTransactions = async (req, res) => {
   const { startDate, endDate, category, type, page, limit } = req.query;
-  const query = buildTransactionQuery({
-    userId: req.user._id,
-    startDate,
-    endDate,
-    category,
-    type
-  });
+  
+  // Check if user belongs to an organization
+  if (!req.user.organizationId) {
+    return res.status(403).json({ message: "User must belong to an organization to view transactions" });
+  }
+
+  // For any user in organization, show their own transactions
+  // For admins (ORG_ADMIN, SUPER_ADMIN), allow viewing all organization transactions
+  const query = {
+    organizationId: req.user.organizationId
+  };
+
+  // Regular users can only see their own transactions
+  // Admins (MANAGER, ORG_ADMIN, SUPER_ADMIN) can see all org transactions
+  if (req.user.orgRole !== "MANAGER" && req.user.orgRole !== "ORG_ADMIN" && req.user.orgRole !== "SUPER_ADMIN") {
+    query.userId = req.user._id;
+  }
+
+  // Apply other filters
+  if (startDate || endDate) {
+    query.date = {};
+    if (startDate) {
+      query.date.$gte = new Date(startDate);
+    }
+    if (endDate) {
+      query.date.$lte = new Date(endDate);
+    }
+  }
+  if (category) {
+    query.category = category;
+  }
+  if (type && ["income", "expense"].includes(type)) {
+    query.type = type;
+  }
 
   const pageNumber = Math.max(1, Number(page) || 1);
   const pageSize = Math.max(0, Number(limit) || 0);
@@ -151,16 +183,41 @@ export const getTransactions = async (req, res) => {
 };
 
 export const deleteTransaction = async (req, res) => {
-  const deleted = await Transaction.findOneAndDelete({ _id: req.params.id, userId: req.user._id });
+  if (!req.user.organizationId) {
+    return res.status(403).json({ message: "User must belong to an organization" });
+  }
+
+  // Regular users can only delete their own, admins can delete any in org
+  const deleteFilter = {
+    _id: req.params.id,
+    organizationId: req.user.organizationId
+  };
+
+  if (req.user.orgRole !== "MANAGER" && req.user.orgRole !== "ORG_ADMIN" && req.user.orgRole !== "SUPER_ADMIN") {
+    deleteFilter.userId = req.user._id;
+  }
+
+  const deleted = await Transaction.findOneAndDelete(deleteFilter);
   if (!deleted) {
-    return res.status(404).json({ message: "Transaction not found" });
+    return res.status(404).json({ message: "Transaction not found or you don't have permission to delete it" });
   }
   return res.json({ message: "Transaction deleted successfully" });
 };
 
 export const exportTransactions = async (req, res) => {
+  if (!req.user.organizationId) {
+    return res.status(403).json({ message: "User must belong to an organization" });
+  }
+
   const format = (req.query.format || "json").toLowerCase();
-  const transactions = await Transaction.find({ userId: req.user._id }).sort({ date: -1 });
+  
+  // Regular users export only their own, admins export all org transactions
+  const query = { organizationId: req.user.organizationId };
+  if (req.user.orgRole !== "MANAGER" && req.user.orgRole !== "ORG_ADMIN" && req.user.orgRole !== "SUPER_ADMIN") {
+    query.userId = req.user._id;
+  }
+
+  const transactions = await Transaction.find(query).sort({ date: -1 });
 
   if (format === "csv") {
     const header = "amount,type,category,notes,date,tags\n";
@@ -187,6 +244,10 @@ export const exportTransactions = async (req, res) => {
 export const importTransactions = async (req, res) => {
   if (!req.file) return res.status(400).json({ message: "Import file is required" });
 
+  if (!req.user.organizationId) {
+    return res.status(403).json({ message: "User must belong to an organization to import transactions" });
+  }
+
   const content = req.file.buffer.toString("utf-8");
   let parsed = [];
   if (req.file.mimetype.includes("json") || req.file.originalname.endsWith(".json")) {
@@ -209,6 +270,7 @@ export const importTransactions = async (req, res) => {
     .filter((item) => item.amount && item.type && item.category && item.date)
     .map((item) => ({
       userId: req.user._id,
+      organizationId: req.user.organizationId,
       amount: Number(item.amount),
       type: item.type,
       category: item.category,

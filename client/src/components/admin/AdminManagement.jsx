@@ -19,7 +19,7 @@ const AdminManagement = () => {
     try {
       setLoading(true);
       const response = await api.get("/admin/users");
-      const adminUsers = response.data.filter((user) => user.role === "admin");
+      const adminUsers = response.data.filter((user) => user.orgRole === "SUPER_ADMIN" || user.orgRole === "MANAGER" || user.orgRole === "ORG_ADMIN");
       setAdmins(adminUsers);
       setError(null);
     } catch (err) {

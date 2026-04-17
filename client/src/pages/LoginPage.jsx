@@ -6,10 +6,11 @@ import AuthOptionButton from "../components/auth/AuthOptionButton";
 import AuthToast from "../components/auth/AuthToast";
 import EmailAuthForm from "../components/auth/EmailAuthForm";
 import MobileOtpForm from "../components/auth/MobileOtpForm";
+import JoinOrganizationModal from "../components/auth/JoinOrganizationModal";
 import { useAuth } from "../hooks/useAuth";
 
 const LoginPage = () => {
-  const { login, loginWithGoogle, sendOtp, verifyOtp } = useAuth();
+  const { login, loginWithGoogle, sendOtp, verifyOtp, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [loginType, setLoginType] = useState(null); // "user" or "admin"
   const [method, setMethod] = useState("email");
@@ -19,14 +20,32 @@ const LoginPage = () => {
   const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState({ email: false, otp: false, verifyOtp: false, google: false });
   const [toast, setToast] = useState({ type: "", message: "" });
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [loggedInUser, setLoggedInUser] = useState(null);
 
   const onAuthSuccess = (user) => {
-    // ✅ Role-based redirect: admins go to admin dashboard, others to user dashboard
-    if (user.role === "admin") {
+    // Prompt regular (personal) users who are not part of any organization
+    // to optionally join an organization after login. Skip users who
+    // already belong to an org or have an orgRole (admins).
+    if (user.accountRole === "personal" && !user.organizationId && !user.orgRole) {
+      setLoggedInUser(user);
+      setShowJoinModal(true);
+      return;
+    }
+
+    // Role-based redirect: admins go to admin dashboard, others to user dashboard
+    if (user.orgRole === "SUPER_ADMIN" || user.orgRole === "MANAGER" || user.orgRole === "ORG_ADMIN") {
       navigate("/admin");
     } else {
       navigate(user.onboardingCompleted ? "/dashboard" : "/onboarding");
     }
+  };
+
+  const handleJoinOrgSuccess = async () => {
+    // Refresh user data and then navigate
+    await refreshUser();
+    setShowJoinModal(false);
+    navigate("/dashboard");
   };
 
   const showToast = (type, message) => setToast({ type, message });
@@ -85,89 +104,104 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="surface-card mx-auto mt-10 max-w-md p-6">
-      {!loginType ? (
-        <>
-          <h1 className="mb-4 text-2xl font-bold">Select Login Type</h1>
-          <AuthToast toast={toast} onClose={() => setToast({ type: "", message: "" })} />
-          <div className="space-y-3">
-            <button
-              onClick={() => setLoginType("user")}
-              className="btn-primary w-full py-3 text-center"
-            >
-              👤 Personal Login
-            </button>
-            <button
-              onClick={() => setLoginType("organization")}
-              className="btn-primary w-full py-3 text-center"
-            >
-              🏢 Organization Login
-            </button>
-            <button
-              onClick={() => setLoginType("admin")}
-              className="btn-secondary w-full py-3 text-center"
-            >
-              🔐 Admin Login
-            </button>
-          </div>
-          <p className="mt-6 text-sm text-gray-400">No account? <Link to="/register" className="text-white underline-offset-2 hover:underline">Create one</Link></p>
-        </>
-      ) : (
-        <>
-          <div className="mb-4 flex items-center justify-between">
-            <h1 className="text-2xl font-bold">
-              {loginType === "admin" ? "🔐 Admin Login" : loginType === "organization" ? "🏢 Organization Login" : "👤 Personal Login"}
-            </h1>
-            <button
-              onClick={() => setLoginType(null)}
-              className="text-sm text-gray-400 hover:text-gray-300"
-              title="Change login type"
-            >
-              ← Back
-            </button>
-          </div>
-          <AuthToast toast={toast} onClose={() => setToast({ type: "", message: "" })} />
-          <div className="space-y-2">
-            <AuthOptionButton label="Continue with Google" icon="G" active={method === "google"} onClick={() => setMethod("google")} />
-            <AuthOptionButton label="Continue with Mobile Number" icon={<Smartphone size={16} />} active={method === "mobile"} onClick={() => setMethod("mobile")} />
-            <AuthOptionButton label="Continue with Email" icon={<Mail size={16} />} active={method === "email"} onClick={() => setMethod("email")} />
-          </div>
-          <div className="my-4 flex items-center gap-3 text-xs text-gray-400">
-            <span className="h-px flex-1 bg-zinc-700" />
-            OR
-            <span className="h-px flex-1 bg-zinc-700" />
-          </div>
-          {method === "google" ? (
-            <div className="space-y-2">
-              <GoogleLogin onSuccess={handleGoogleSuccess} onError={() => showToast("error", "Google sign-in failed")} />
-              {loading.google ? <p className="text-sm text-gray-400">Signing in...</p> : null}
+    <>
+      <div className="surface-card mx-auto mt-10 max-w-md p-6">
+        {!loginType ? (
+          <>
+            <h1 className="mb-4 text-2xl font-bold">Select Login Type</h1>
+            <AuthToast toast={toast} onClose={() => setToast({ type: "", message: "" })} />
+            <div className="space-y-3">
+              <button
+                onClick={() => setLoginType("user")}
+                className="btn-primary w-full py-3 text-center"
+              >
+                👤 Personal Login
+              </button>
+              <button
+                onClick={() => setLoginType("organization")}
+                className="btn-primary w-full py-3 text-center"
+              >
+                🏢 Organization Login
+              </button>
+              <button
+                onClick={() => setLoginType("admin")}
+                className="btn-secondary w-full py-3 text-center"
+              >
+                🔐 Admin Login
+              </button>
             </div>
-          ) : null}
-          {method === "email" ? (
-            <EmailAuthForm
-              form={form}
-              loading={loading.email}
-              onChange={(key, value) => setForm((p) => ({ ...p, [key]: value }))}
-              onSubmit={handleSubmit}
-            />
-          ) : null}
-          {method === "mobile" ? (
-            <MobileOtpForm
-              mobile={mobile}
-              otp={otp}
-              onMobileChange={setMobile}
-              onOtpChange={setOtp}
-              onSendOtp={handleSendOtp}
-              onVerifyOtp={handleVerifyOtp}
-              otpSent={otpSent}
-              sendingOtp={loading.otp}
-              verifyingOtp={loading.verifyOtp}
-            />
-          ) : null}
-          <p className="mt-4 text-sm text-gray-400">No account? <Link to="/register" className="text-white underline-offset-2 hover:underline">Create one</Link></p>
-        </>
-      )}
-    </div>
+            <p className="mt-6 text-sm text-gray-400">No account? <Link to="/register" className="text-white underline-offset-2 hover:underline">Create one</Link></p>
+          </>
+        ) : (
+          <>
+            <div className="mb-4 flex items-center justify-between">
+              <h1 className="text-2xl font-bold">
+                {loginType === "admin" ? "🔐 Admin Login" : loginType === "organization" ? "🏢 Organization Login" : "👤 Personal Login"}
+              </h1>
+              <button
+                onClick={() => setLoginType(null)}
+                className="text-sm text-gray-400 hover:text-gray-300"
+                title="Change login type"
+              >
+                ← Back
+              </button>
+            </div>
+            <AuthToast toast={toast} onClose={() => setToast({ type: "", message: "" })} />
+            <div className="space-y-2">
+              <AuthOptionButton label="Continue with Google" icon="G" active={method === "google"} onClick={() => setMethod("google")} />
+              <AuthOptionButton label="Continue with Mobile Number" icon={<Smartphone size={16} />} active={method === "mobile"} onClick={() => setMethod("mobile")} />
+              <AuthOptionButton label="Continue with Email" icon={<Mail size={16} />} active={method === "email"} onClick={() => setMethod("email")} />
+            </div>
+            <div className="my-4 flex items-center gap-3 text-xs text-gray-400">
+              <span className="h-px flex-1 bg-zinc-700" />
+              OR
+              <span className="h-px flex-1 bg-zinc-700" />
+            </div>
+            {method === "google" ? (
+              <div className="space-y-2">
+                <GoogleLogin onSuccess={handleGoogleSuccess} onError={() => showToast("error", "Google sign-in failed")} />
+                {loading.google ? <p className="text-sm text-gray-400">Signing in...</p> : null}
+              </div>
+            ) : null}
+            {method === "email" ? (
+              <EmailAuthForm
+                form={form}
+                loading={loading.email}
+                onChange={(key, value) => setForm((p) => ({ ...p, [key]: value }))}
+                onSubmit={handleSubmit}
+              />
+            ) : null}
+            {method === "mobile" ? (
+              <MobileOtpForm
+                mobile={mobile}
+                otp={otp}
+                onMobileChange={setMobile}
+                onOtpChange={setOtp}
+                onSendOtp={handleSendOtp}
+                onVerifyOtp={handleVerifyOtp}
+                otpSent={otpSent}
+                sendingOtp={loading.otp}
+                verifyingOtp={loading.verifyOtp}
+              />
+            ) : null}
+            <p className="mt-4 text-sm text-gray-400">No account? <Link to="/register" className="text-white underline-offset-2 hover:underline">Create one</Link></p>
+          </>
+        )}
+      </div>
+
+      {/* Join Organization Modal */}
+      <JoinOrganizationModal
+        isOpen={showJoinModal}
+        onClose={() => {
+          setShowJoinModal(false);
+          // Navigate after closing modal
+          if (loggedInUser) {
+            navigate(loggedInUser.onboardingCompleted ? "/dashboard" : "/onboarding");
+          }
+        }}
+        onSuccess={handleJoinOrgSuccess}
+      />
+    </>
   );
 };
 
