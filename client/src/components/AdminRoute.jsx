@@ -19,8 +19,8 @@ const AdminRoute = ({ children }) => {
     return <Navigate to="/login" />;
   }
 
-  // ✅ Check for admin roles (SUPER_ADMIN, MANAGER, or ORG_ADMIN)
-  if (user.orgRole !== "SUPER_ADMIN" && user.orgRole !== "MANAGER" && user.orgRole !== "ORG_ADMIN") {
+  // ✅ Only SUPER_ADMIN can access global admin dashboard
+  if (user.orgRole !== "SUPER_ADMIN") {
     return <Navigate to="/dashboard" />;
   }
 

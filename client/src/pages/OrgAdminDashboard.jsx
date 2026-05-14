@@ -18,6 +18,7 @@ const OrgAdminDashboard = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [formData, setFormData] = useState({ email: "", assignRole: "" });
   const [budgetData, setBudgetData] = useState({ budget: "", budgetPeriod: "monthly" });
+  const [userExpenses, setUserExpenses] = useState({}); // Store per-user expenses
 
   useEffect(() => {
     if (user && user.orgRole !== "MANAGER" && user.orgRole !== "ORG_ADMIN" && user.orgRole !== "SUPER_ADMIN") {
@@ -39,7 +40,31 @@ const OrgAdminDashboard = () => {
       setOrganization(orgRes.data.organization);
       setUsers(usersRes.data.users || []);
       setTransactions(transactionsRes.data.transactions || []);
-      setAnalytics(analyticsRes.data.analytics);
+      
+      // ✅ Extract analytics - handle nested structure
+      const analyticsData = analyticsRes.data.analytics || {};
+      setAnalytics(analyticsData);
+      
+      // ✅ Calculate per-user expenses from transactions
+      const userExpenseMap = {};
+      (transactionsRes.data.transactions || []).forEach(t => {
+        if (!userExpenseMap[t.userId?._id]) {
+          userExpenseMap[t.userId?._id] = {
+            userId: t.userId?._id,
+            userName: t.userId?.name,
+            totalExpense: 0,
+            totalIncome: 0,
+            count: 0
+          };
+        }
+        if (t.type === "expense") {
+          userExpenseMap[t.userId?._id].totalExpense += t.amount;
+        } else {
+          userExpenseMap[t.userId?._id].totalIncome += t.amount;
+        }
+        userExpenseMap[t.userId?._id].count += 1;
+      });
+      setUserExpenses(userExpenseMap);
       setError(null);
     } catch (err) {
       setError(err.response?.data?.message || "Failed to fetch data");
@@ -170,18 +195,18 @@ const OrgAdminDashboard = () => {
         )}
 
         {/* Tabs */}
-        <div className="flex gap-4 mb-8 border-b border-gray-700">
-          {["overview", "users", "transactions", "export"].map((tab) => (
+        <div className="flex gap-4 mb-8 border-b border-gray-700 overflow-x-auto">
+          {["overview", "users", "user-expenses", "transactions", "export"].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-6 py-3 font-semibold transition ${
+              className={`px-6 py-3 font-semibold transition whitespace-nowrap ${
                 activeTab === tab
                   ? "border-b-2 border-blue-500 text-blue-400"
                   : "text-gray-400 hover:text-white"
               }`}
             >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {tab === "user-expenses" ? "User Expenses" : tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
           ))}
         </div>
@@ -190,33 +215,81 @@ const OrgAdminDashboard = () => {
         {activeTab === "overview" && (
           <div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-gray-800 p-6 rounded-lg">
+              <div className="bg-gray-800 p-6 rounded-lg border-l-4 border-red-500">
                 <h3 className="text-gray-400 text-sm mb-2">Total Expenses</h3>
-                <p className="text-3xl font-bold">₹{analytics?.totalExpenses?.toFixed(2)}</p>
+                <p className="text-3xl font-bold">₹{analytics?.summary?.totalExpenses?.toFixed(2) || "0.00"}</p>
               </div>
-              <div className="bg-gray-800 p-6 rounded-lg">
+              <div className="bg-gray-800 p-6 rounded-lg border-l-4 border-blue-500">
                 <h3 className="text-gray-400 text-sm mb-2">Total Users</h3>
-                <p className="text-3xl font-bold">{analytics?.totalUsers}</p>
+                <p className="text-3xl font-bold">{users.length}</p>
               </div>
-              <div className="bg-gray-800 p-6 rounded-lg">
+              <div className="bg-gray-800 p-6 rounded-lg border-l-4 border-green-500">
                 <h3 className="text-gray-400 text-sm mb-2">Net Balance</h3>
-                <p className="text-3xl font-bold">₹{analytics?.net?.toFixed(2)}</p>
+                <p className="text-3xl font-bold">₹{analytics?.summary?.balance?.toFixed(2) || "0.00"}</p>
               </div>
             </div>
 
+            {/* Top Spenders */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <div className="bg-gray-800 p-6 rounded-lg">
+                <h3 className="text-xl font-bold mb-4">👥 Top Spenders</h3>
+                <div className="space-y-3">
+                  {(analytics?.userBreakdown || [])
+                    .slice(0, 5)
+                    .map((userExp, idx) => (
+                      <div key={userExp.userId} className="flex justify-between items-center p-2 bg-gray-700 rounded">
+                        <div className="flex items-center gap-3">
+                          <span className="text-gray-400 font-bold text-lg">#{idx + 1}</span>
+                          <div>
+                            <p className="font-semibold text-white">{userExp.userName}</p>
+                            <p className="text-xs text-gray-400">{userExp.transactionCount} transactions</p>
+                          </div>
+                        </div>
+                        <p className="text-red-400 font-bold">₹{userExp.expenses}</p>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              <div className="bg-gray-800 p-6 rounded-lg">
+                <h3 className="text-xl font-bold mb-4">📊 Expenses by Category</h3>
+                <div className="space-y-2">
+                  {(analytics?.categoryBreakdown || []).length > 0 ? (
+                    (analytics?.categoryBreakdown || [])
+                      .slice(0, 5)
+                      .map((cat) => (
+                        <div key={cat.category} className="flex justify-between items-center p-2 bg-gray-700 rounded">
+                          <span className="text-gray-300">{cat.category}</span>
+                          <span className="font-semibold text-red-400">₹{cat.amount}</span>
+                        </div>
+                      ))
+                  ) : (
+                    <p className="text-gray-400">No expenses yet</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Stats */}
             <div className="bg-gray-800 p-6 rounded-lg">
-              <h3 className="text-xl font-bold mb-4">Expenses by Category</h3>
-              <div className="space-y-2">
-                {analytics?.byCategory && Object.entries(analytics.byCategory).length > 0 ? (
-                  Object.entries(analytics.byCategory).map(([category, amount]) => (
-                    <div key={category} className="flex justify-between items-center">
-                      <span className="text-gray-300">{category}</span>
-                      <span className="font-semibold">₹{amount?.toFixed(2)}</span>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-gray-400">No expenses yet</p>
-                )}
+              <h3 className="text-xl font-bold mb-4">📈 Quick Statistics</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-3 bg-gray-700 rounded">
+                  <p className="text-xs text-gray-400">Avg per User</p>
+                  <p className="text-lg font-bold text-blue-400">₹{analytics?.summary?.averageExpensePerUser?.toFixed(2) || "0.00"}</p>
+                </div>
+                <div className="p-3 bg-gray-700 rounded">
+                  <p className="text-xs text-gray-400">Avg per Transaction</p>
+                  <p className="text-lg font-bold text-blue-400">₹{analytics?.summary?.totalTransactions > 0 ? (analytics.summary.totalExpenses / analytics.summary.totalTransactions).toFixed(2) : "0.00"}</p>
+                </div>
+                <div className="p-3 bg-gray-700 rounded">
+                  <p className="text-xs text-gray-400">Users with Activity</p>
+                  <p className="text-lg font-bold text-purple-400">{Object.keys(userExpenses).length}</p>
+                </div>
+                <div className="p-3 bg-gray-700 rounded">
+                  <p className="text-xs text-gray-400">Total Transactions</p>
+                  <p className="text-lg font-bold text-green-400">{analytics?.summary?.totalTransactions || 0}</p>
+                </div>
               </div>
             </div>
           </div>
@@ -377,7 +450,132 @@ const OrgAdminDashboard = () => {
           </div>
         )}
 
-        {/* Transactions Tab */}
+        {/* ✅ NEW: User Expenses Tab */}
+        {activeTab === "user-expenses" && (
+          <div className="space-y-6">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-gradient-to-br from-blue-900 to-blue-800 p-6 rounded-lg">
+                <h3 className="text-gray-300 text-sm mb-2 font-semibold">Total Organization Expense</h3>
+                <p className="text-4xl font-bold text-blue-200">₹{analytics?.summary?.totalExpenses?.toFixed(2) || "0.00"}</p>
+                <p className="text-xs text-gray-400 mt-2">{analytics?.summary?.expenseCount || 0} transactions</p>
+              </div>
+              <div className="bg-gradient-to-br from-green-900 to-green-800 p-6 rounded-lg">
+                <h3 className="text-gray-300 text-sm mb-2 font-semibold">Total Income</h3>
+                <p className="text-4xl font-bold text-green-200">₹{analytics?.summary?.totalIncome?.toFixed(2) || "0.00"}</p>
+                <p className="text-xs text-gray-400 mt-2">{analytics?.summary?.incomeCount || 0} transactions</p>
+              </div>
+              <div className="bg-gradient-to-br from-purple-900 to-purple-800 p-6 rounded-lg">
+                <h3 className="text-gray-300 text-sm mb-2 font-semibold">Net Balance</h3>
+                <p className="text-4xl font-bold text-purple-200">₹{analytics?.summary?.balance?.toFixed(2) || "0.00"}</p>
+                <p className="text-xs text-gray-400 mt-2">Income - Expense</p>
+              </div>
+              <div className="bg-gradient-to-br from-indigo-900 to-indigo-800 p-6 rounded-lg">
+                <h3 className="text-gray-300 text-sm mb-2 font-semibold">Active Users</h3>
+                <p className="text-4xl font-bold text-indigo-200">{analytics?.userBreakdown?.length || 0}</p>
+                <p className="text-xs text-gray-400 mt-2">With transactions</p>
+              </div>
+            </div>
+
+            {/* Per-User Breakdown Table */}
+            <div className="bg-gray-800 rounded-lg overflow-hidden">
+              <div className="px-6 py-4 bg-gradient-to-r from-gray-700 to-gray-800 border-b border-gray-600">
+                <h3 className="font-bold text-lg">📊 Per-User Expense Breakdown</h3>
+                <p className="text-sm text-gray-400 mt-1">Individual user expenses and transaction summary</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-700 border-b border-gray-600">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-300">User Name</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-300">Total Expense</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-300">Total Income</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-300">Net Balance</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-300">Transactions</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-300">% of Total</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-300">Budget Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-700">
+                    {(analytics?.userBreakdown || []).length === 0 ? (
+                      <tr>
+                        <td colSpan="7" className="px-6 py-8 text-center text-gray-400">
+                          No user transactions yet
+                        </td>
+                      </tr>
+                    ) : (
+                      (analytics?.userBreakdown || []).map((userExp, idx) => (
+                        <tr key={userExp.userId} className="hover:bg-gray-700 transition">
+                          <td className="px-6 py-3 font-medium text-white">{userExp.userName}</td>
+                          <td className="px-6 py-3 text-red-400 font-semibold">₹{userExp.expenses}</td>
+                          <td className="px-6 py-3 text-green-400 font-semibold">₹{userExp.income}</td>
+                          <td className="px-6 py-3 font-semibold">
+                            <span className={userExp.balance >= 0 ? "text-green-400" : "text-red-400"}>
+                              ₹{userExp.balance}
+                            </span>
+                          </td>
+                          <td className="px-6 py-3">
+                            <span className="inline-block px-3 py-1 rounded-full text-sm bg-blue-900 text-blue-200">
+                              {userExp.transactionCount}
+                            </span>
+                          </td>
+                          <td className="px-6 py-3">
+                            <span className="inline-block px-3 py-1 rounded-full text-sm bg-purple-900 text-purple-200">
+                              {((userExp.expenses / (analytics?.summary?.totalExpenses || 1)) * 100).toFixed(1)}%
+                            </span>
+                          </td>
+                          <td className="px-6 py-3">
+                            {userExp.budget ? (
+                              <div className="flex items-center gap-2">
+                                <div className="w-24 bg-gray-600 rounded-full h-2">
+                                  <div
+                                    className={`h-2 rounded-full ${
+                                      userExp.budgetUsage > 100 ? "bg-red-500" : userExp.budgetUsage > 75 ? "bg-yellow-500" : "bg-green-500"
+                                    }`}
+                                    style={{ width: `${Math.min(userExp.budgetUsage, 100)}%` }}
+                                  ></div>
+                                </div>
+                                <span className="text-xs text-gray-400">{userExp.budgetUsage}%</span>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-gray-500">No budget</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Footer Summary */}
+              {(analytics?.userBreakdown || []).length > 0 && (
+                <div className="px-6 py-4 bg-gray-700 border-t border-gray-600">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <p className="text-xs text-gray-400">Total Users Tracked</p>
+                      <p className="text-xl font-bold text-white">{analytics?.userBreakdown?.length}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-400">Avg Expense per User</p>
+                      <p className="text-xl font-bold text-red-400">₹{analytics?.summary?.averageExpensePerUser?.toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-400">Avg Transactions per User</p>
+                      <p className="text-xl font-bold text-blue-400">{((analytics?.summary?.totalTransactions || 0) / (analytics?.userBreakdown?.length || 1)).toFixed(1)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-400">Highest Spender</p>
+                      <p className="text-xl font-bold text-orange-400">
+                        {(analytics?.userBreakdown || [])[0]?.userName || "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         {activeTab === "transactions" && (
           <div className="bg-gray-800 rounded-lg overflow-hidden">
             <div className="px-6 py-4 bg-gray-700 border-b border-gray-600">

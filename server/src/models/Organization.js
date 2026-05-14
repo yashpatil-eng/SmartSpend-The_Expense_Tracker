@@ -15,8 +15,8 @@ const organizationSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Index for quick lookups
-organizationSchema.index({ orgCode: 1 });
+// ✅ NOTE: orgCode already has index from "unique: true" constraint
+// Only explicit index for createdBy for faster lookups
 organizationSchema.index({ createdBy: 1 });
 
 const Organization = mongoose.model("Organization", organizationSchema);
