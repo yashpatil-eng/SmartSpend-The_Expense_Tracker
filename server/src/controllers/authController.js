@@ -192,23 +192,15 @@ export const googleAuth = async (req, res) => {
 
     if (!user) {
       const normalizedEmail = payload.email.toLowerCase();
-<<<<<<< HEAD
-      // ✅ Always "user" for Google auth - admin cannot be created this way
-=======
       // ✅ Check if this is the SUPER_ADMIN
       const userOrgRole = isSuperAdminEmail(normalizedEmail) ? "SUPER_ADMIN" : null;
       
->>>>>>> 914ca55a (complete project)
       user = await User.create({
         name: payload.name || payload.email.split("@")[0],
         email: normalizedEmail,
         googleId: payload.sub,
         avatar: payload.picture,
-<<<<<<< HEAD
-        role: "user",
-=======
         orgRole: userOrgRole,
->>>>>>> 914ca55a (complete project)
         accountRole: "personal"
       });
       console.log(`[DEBUG] Google user created: ${normalizedEmail}, orgRole: ${userOrgRole}`);
