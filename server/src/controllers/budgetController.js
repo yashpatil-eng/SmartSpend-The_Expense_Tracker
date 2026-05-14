@@ -32,14 +32,14 @@ export const getMyBudgetStatus = async (req, res) => {
 };
 
 /**
- * Get all users' budget status (ORG_ADMIN only)
+ * Get all users' budget status (ORG_ADMIN or MANAGER)
  * GET /api/budget/organization
  */
 export const getOrganizationBudgetStatus = async (req, res) => {
   try {
-    if (req.user.orgRole !== "ORG_ADMIN" && req.user.orgRole !== "SUPER_ADMIN") {
+    if (req.user.orgRole !== "ORG_ADMIN" && req.user.orgRole !== "MANAGER" && req.user.orgRole !== "SUPER_ADMIN") {
       return res.status(403).json({
-        message: "Only ORG_ADMIN can view all budgets"
+        message: "Only ORG_ADMIN or MANAGER can view all budgets"
       });
     }
 
@@ -117,14 +117,14 @@ export const validateTransaction = async (req, res) => {
 };
 
 /**
- * Update user budget (ORG_ADMIN only)
+ * Update user budget (ORG_ADMIN or MANAGER)
  * POST /api/budget/set-user-budget
  */
 export const setUserBudget = async (req, res) => {
   try {
-    if (req.user.orgRole !== "ORG_ADMIN" && req.user.orgRole !== "SUPER_ADMIN") {
+    if (req.user.orgRole !== "ORG_ADMIN" && req.user.orgRole !== "MANAGER" && req.user.orgRole !== "SUPER_ADMIN") {
       return res.status(403).json({
-        message: "Only ORG_ADMIN can set budgets"
+        message: "Only ORG_ADMIN or MANAGER can set budgets"
       });
     }
 

@@ -34,18 +34,18 @@ router.get("/all", isSuperAdmin, getAllOrganizations);
 router.get("/my-organization", getMyOrganization);
 router.post("/join-by-code", joinOrganizationByCode);
 
-// ORG_ADMIN routes
-router.post("/add-user", authorize(["ORG_ADMIN", "SUPER_ADMIN"]), addUserToOrganization);
+// ORG_ADMIN/MANAGER routes
+router.post("/add-user", authorize(["ORG_ADMIN", "MANAGER", "SUPER_ADMIN"]), addUserToOrganization);
 router.post("/promote-to-admin", authorize(["ORG_ADMIN", "SUPER_ADMIN"]), promoteUserToAdmin);
 router.post("/demote-to-user", authorize(["ORG_ADMIN", "SUPER_ADMIN"]), demoteAdminToUser);
-router.get("/users", authorize(["ORG_ADMIN", "SUPER_ADMIN"]), getOrganizationUsers);
-router.post("/set-budget", authorize(["ORG_ADMIN", "SUPER_ADMIN"]), setUserBudget);
-router.get("/transactions", authorize(["ORG_ADMIN", "SUPER_ADMIN"]), getOrganizationTransactions);
-router.get("/analytics", authorize(["ORG_ADMIN", "SUPER_ADMIN"]), getOrganizationAnalytics);
-router.post("/remove-user", authorize(["ORG_ADMIN", "SUPER_ADMIN"]), removeUserFromOrganization);
+router.get("/users", authorize(["ORG_ADMIN", "MANAGER", "SUPER_ADMIN"]), getOrganizationUsers);
+router.post("/set-budget", authorize(["ORG_ADMIN", "MANAGER", "SUPER_ADMIN"]), setUserBudget);
+router.get("/transactions", authorize(["ORG_ADMIN", "MANAGER", "SUPER_ADMIN"]), getOrganizationTransactions);
+router.get("/analytics", authorize(["ORG_ADMIN", "MANAGER", "SUPER_ADMIN"]), getOrganizationAnalytics);
+router.post("/remove-user", authorize(["ORG_ADMIN", "MANAGER", "SUPER_ADMIN"]), removeUserFromOrganization);
 
 // Export routes
-router.get("/export/csv", authorize(["ORG_ADMIN", "SUPER_ADMIN"]), exportTransactionsCSV);
-router.get("/export/excel", authorize(["ORG_ADMIN", "SUPER_ADMIN"]), exportTransactionsExcel);
+router.get("/export/csv", authorize(["ORG_ADMIN", "MANAGER", "SUPER_ADMIN"]), exportTransactionsCSV);
+router.get("/export/excel", authorize(["ORG_ADMIN", "MANAGER", "SUPER_ADMIN"]), exportTransactionsExcel);
 
 export default router;

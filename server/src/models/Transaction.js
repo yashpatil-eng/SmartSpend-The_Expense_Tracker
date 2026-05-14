@@ -11,7 +11,7 @@ const transactionItemSchema = new mongoose.Schema(
 const transactionSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
-    organizationId: { type: mongoose.Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
+    organizationId: { type: mongoose.Schema.Types.ObjectId, ref: "Organization", default: null, index: true },
     amount: { type: Number, required: true, min: 0 },
     type: { type: String, enum: ["income", "expense"], required: true },
     category: { type: String, required: true, trim: true },

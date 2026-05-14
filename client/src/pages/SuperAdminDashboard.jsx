@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "../hooks/useAuth";
 import api from "../api/axios";
 import { useNavigate } from "react-router-dom";
+import { ChevronDown, ChevronUp, Crown } from "lucide-react";
 
 const SuperAdminDashboard = () => {
   const { user, logout } = useAuth();
@@ -11,6 +12,10 @@ const SuperAdminDashboard = () => {
   const [error, setError] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [formData, setFormData] = useState({ name: "", description: "" });
+  const [expandedOrgId, setExpandedOrgId] = useState(null);
+  const [organizationUsers, setOrganizationUsers] = useState({});
+  const [promoting, setPromoting] = useState(null);
+  const [usersLoading, setUsersLoading] = useState(null);
 
   useEffect(() => {
     // Redirect if not SUPER_ADMIN
@@ -52,6 +57,62 @@ const SuperAdminDashboard = () => {
       fetchOrganizations();
     } catch (err) {
       alert(err.response?.data?.message || "Failed to create organization");
+    }
+  };
+
+  // Fetch users for a specific organization
+  const fetchOrganizationUsers = async (orgId) => {
+    try {
+      setUsersLoading(orgId);
+      const response = await api.get("/org/users", {
+        params: { orgId }
+      });
+      setOrganizationUsers({
+        ...organizationUsers,
+        [orgId]: response.data.users || []
+      });
+    } catch (err) {
+      console.error("Failed to fetch users:", err);
+      alert(err.response?.data?.message || "Failed to fetch users");
+    } finally {
+      setUsersLoading(null);
+    }
+  };
+
+  // Promote user to Manager
+  const handlePromoteToManager = async (userId, orgId) => {
+    if (!window.confirm("Promote this user to Organization Manager? Any existing manager will be demoted.")) {
+      return;
+    }
+
+    try {
+      setPromoting(userId);
+      await api.post("/org/promote-to-admin", {
+        userId,
+        targetRole: "MANAGER",  // ✅ Promote to MANAGER role
+        organizationId: orgId
+      });
+      
+      alert("User promoted to Manager successfully!");
+      // Refresh users for this organization
+      await fetchOrganizationUsers(orgId);
+      await fetchOrganizations();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to promote user");
+    } finally {
+      setPromoting(null);
+    }
+  };
+
+  // Toggle organization expansion
+  const handleToggleOrgExpand = async (orgId) => {
+    if (expandedOrgId === orgId) {
+      setExpandedOrgId(null);
+    } else {
+      setExpandedOrgId(orgId);
+      if (!organizationUsers[orgId]) {
+        await fetchOrganizationUsers(orgId);
+      }
     }
   };
 
@@ -149,7 +210,7 @@ const SuperAdminDashboard = () => {
         {/* Organizations List */}
         <div className="bg-gray-800 rounded-lg overflow-hidden">
           <div className="px-6 py-4 bg-gray-700 border-b border-gray-600">
-            <h2 className="text-xl font-bold">Organizations</h2>
+            <h2 className="text-xl font-bold">Organizations & Managers</h2>
           </div>
           <div className="divide-y divide-gray-700">
             {organizations.length === 0 ? (
@@ -158,26 +219,91 @@ const SuperAdminDashboard = () => {
               </div>
             ) : (
               organizations.map((org) => (
-                <div key={org._id} className="px-6 py-4 hover:bg-gray-700 transition">
-                  <div className="flex justify-between items-start">
+                <div key={org._id} className="hover:bg-gray-700/50 transition">
+                  {/* Organization Header - Clickable */}
+                  <div
+                    onClick={() => handleToggleOrgExpand(org._id)}
+                    className="px-6 py-4 cursor-pointer flex justify-between items-start"
+                  >
                     <div className="flex-1">
                       <h3 className="text-lg font-semibold mb-2">{org.name}</h3>
                       <div className="space-y-1 text-sm text-gray-400">
                         <p>Code: <span className="font-mono text-blue-400">{org.orgCode}</span></p>
-                        <p>Users: {org.users?.length || 0}</p>
-                        <p>Admins: {org.admins?.length || 0}</p>
+                        <p>Users: {org.users?.length || 0} | Admins: {org.admins?.length || 0}</p>
                         <p>Created: {new Date(org.createdAt).toLocaleDateString()}</p>
                         {org.description && <p>Description: {org.description}</p>}
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="flex items-center gap-4">
                       <span className={`inline-block px-3 py-1 rounded text-sm ${
                         org.isActive ? "bg-green-900 text-green-200" : "bg-red-900 text-red-200"
                       }`}>
                         {org.isActive ? "Active" : "Inactive"}
                       </span>
+                      {expandedOrgId === org._id ? (
+                        <ChevronUp size={24} className="text-gray-400" />
+                      ) : (
+                        <ChevronDown size={24} className="text-gray-400" />
+                      )}
                     </div>
                   </div>
+
+                  {/* Organization Users - Expanded */}
+                  {expandedOrgId === org._id && (
+                    <div className="bg-gray-900/50 border-t border-gray-700 px-6 py-4">
+                      {usersLoading === org._id ? (
+                        <div className="text-center py-4 text-gray-400">Loading users...</div>
+                      ) : organizationUsers[org._id]?.length === 0 ? (
+                        <div className="text-center py-4 text-gray-400">No users in this organization</div>
+                      ) : (
+                        <div className="space-y-3">
+                          <h4 className="font-semibold text-gray-300 mb-3">Organization Members</h4>
+                          {organizationUsers[org._id]?.map((orgUser) => {
+                            const isManager = orgUser.orgRole === "MANAGER";
+                            return (
+                              <div
+                                key={orgUser._id}
+                                className="flex items-center justify-between bg-gray-800 p-3 rounded border border-gray-700"
+                              >
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-medium text-white">{orgUser.name}</p>
+                                    {isManager && (
+                                      <Crown size={16} className="text-yellow-400" title="Current Manager" />
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-gray-400">{orgUser.email}</p>
+                                  <div className="flex gap-2 mt-1">
+                                    <span className={`text-xs px-2 py-0.5 rounded ${
+                                      isManager
+                                        ? "bg-yellow-900 text-yellow-200"
+                                        : orgUser.orgRole === "ORG_ADMIN"
+                                        ? "bg-purple-900 text-purple-200"
+                                        : "bg-blue-900 text-blue-200"
+                                    }`}>
+                                      {orgUser.orgRole || "Regular User"}
+                                    </span>
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => handlePromoteToManager(orgUser._id, org._id)}
+                                  disabled={promoting === orgUser._id || isManager}
+                                  className={`px-4 py-2 rounded font-medium transition ${
+                                    isManager
+                                      ? "bg-gray-700 text-gray-500 cursor-not-allowed"
+                                      : "bg-yellow-600 hover:bg-yellow-700 text-white"
+                                  }`}
+                                  title={isManager ? "Already manager" : "Make this user Organization Manager"}
+                                >
+                                  {promoting === orgUser._id ? "Promoting..." : isManager ? "Manager" : "Promote to Manager"}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))
             )}

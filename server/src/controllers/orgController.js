@@ -3,6 +3,19 @@ import Organization from "../models/Organization.js";
 import User from "../models/User.js";
 import Transaction from "../models/Transaction.js";
 
+const resolveOrganizationId = (req, targetUser = null) => {
+  if (req.user.orgRole === "SUPER_ADMIN") {
+    return req.body.organizationId || req.query.organizationId || req.query.orgId || targetUser?.organizationId || req.user.organizationId || null;
+  }
+  return req.user.organizationId;
+};
+
+const verifySameOrganization = (req, targetUser) => {
+  if (!targetUser || !targetUser.organizationId) return false;
+  if (req.user.orgRole === "SUPER_ADMIN") return true;
+  return targetUser.organizationId.toString() === req.user.organizationId?.toString();
+};
+
 // Utility to generate unique org code
 const generateOrgCode = () => {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -239,22 +252,27 @@ export const joinOrganizationByCode = async (req, res) => {
   }
 };
 
-// ORG_ADMIN: Add user to organization (by email and assign role)
+// ORG_ADMIN/MANAGER: Add user to organization (by email and assign role)
 export const addUserToOrganization = async (req, res) => {
   try {
-    if (req.user.orgRole !== "MANAGER" && req.user.orgRole !== "ORG_ADMIN" && req.user.orgRole !== "SUPER_ADMIN") {
-      return res.status(403).json({ message: "Only MANAGER, ORG_ADMIN or SUPER_ADMIN can add users" });
+    if (req.user.orgRole !== "ORG_ADMIN" && req.user.orgRole !== "MANAGER" && req.user.orgRole !== "SUPER_ADMIN") {
+      return res.status(403).json({ message: "Only ORG_ADMIN or MANAGER can add users" });
     }
 
     const { email, assignRole } = req.body;
+
+    const organizationId = resolveOrganizationId(req);
+    if (!organizationId) {
+      return res.status(400).json({ message: "Organization ID is required for this action" });
+    }
 
     if (!email || email.trim().length === 0) {
       return res.status(400).json({ message: "Email is required" });
     }
 
-    const validRoles = ["MANAGER", "ORG_ADMIN"];
+    const validRoles = ["ORG_ADMIN", "MANAGER"];
     if (assignRole && !validRoles.includes(assignRole)) {
-      return res.status(400).json({ message: "Invalid role. Must be MANAGER or ORG_ADMIN" });
+      return res.status(400).json({ message: "Invalid role. Must be ORG_ADMIN or MANAGER" });
     }
 
     const targetUser = await User.findOne({ email: email.toLowerCase() });
@@ -267,24 +285,26 @@ export const addUserToOrganization = async (req, res) => {
 
     // Update user
     await User.findByIdAndUpdate(targetUser._id, {
-      organizationId: req.user.organizationId,
+      organizationId,
       orgRole: finalRole
     });
 
     // Update organization - manage admins list
-    if (finalRole === "MANAGER" || finalRole === "ORG_ADMIN") {
-      await Organization.findByIdAndUpdate(req.user.organizationId, {
+    if (finalRole === "ORG_ADMIN" || finalRole === "MANAGER") {
+      await Organization.findByIdAndUpdate(organizationId, {
         $addToSet: { admins: targetUser._id, users: targetUser._id }
       });
     } else {
-      await Organization.findByIdAndUpdate(req.user.organizationId, {
+      await Organization.findByIdAndUpdate(organizationId, {
         $addToSet: { users: targetUser._id },
         $pull: { admins: targetUser._id }
       });
     }
 
+    const roleLabel = finalRole || "regular user";
+
     res.json({
-      message: `User added as ${finalRole}`,
+      message: `User added as ${roleLabel}`,
       user: {
         _id: targetUser._id,
         name: targetUser.name,
@@ -298,42 +318,71 @@ export const addUserToOrganization = async (req, res) => {
   }
 };
 
-// ✅ NEW: SUPER_ADMIN/ORG_ADMIN: Promote user to ORG_ADMIN
+// ✅ NEW: SUPER_ADMIN/ORG_ADMIN: Promote user to ORG_ADMIN or MANAGER
 export const promoteUserToAdmin = async (req, res) => {
   try {
-    if (req.user.orgRole !== "MANAGER" && req.user.orgRole !== "ORG_ADMIN" && req.user.orgRole !== "SUPER_ADMIN") {
+    if (req.user.orgRole !== "ORG_ADMIN" && req.user.orgRole !== "SUPER_ADMIN") {
       return res.status(403).json({ 
-        message: "Only MANAGER, ORG_ADMIN or SUPER_ADMIN can promote users" 
+        message: "Only ORG_ADMIN or SUPER_ADMIN can promote users" 
       });
     }
 
-    const { userId } = req.body;
+    const { userId, targetRole } = req.body;
 
     if (!userId) {
       return res.status(400).json({ message: "User ID is required" });
     }
 
-    // Verify user belongs to same organization
+    // Default to ORG_ADMIN, but allow SUPER_ADMIN to specify MANAGER
+    const roleToAssign = (req.user.orgRole === "SUPER_ADMIN" && targetRole === "MANAGER") ? "MANAGER" : "ORG_ADMIN";
+
     const targetUser = await User.findById(userId);
-    if (!targetUser || targetUser.organizationId.toString() !== req.user.organizationId.toString()) {
+    if (!targetUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (!verifySameOrganization(req, targetUser)) {
       return res.status(403).json({ message: "User not found in organization" });
     }
 
-    // ✅ Update user role to ORG_ADMIN
+    if (!targetUser.organizationId) {
+      return res.status(400).json({ message: "Target user must belong to an organization" });
+    }
+
+    // Enforce one admin per role per organization
+    // If promoting to MANAGER, demote existing MANAGERs
+    // If promoting to ORG_ADMIN, demote existing ORG_ADMINs
+    const existingAdmins = await User.find({
+      organizationId: targetUser.organizationId,
+      orgRole: roleToAssign,
+      _id: { $ne: targetUser._id }
+    });
+
+    if (existingAdmins.length > 0) {
+      const existingAdminIds = existingAdmins.map((user) => user._id);
+      await User.updateMany({ _id: { $in: existingAdminIds } }, { orgRole: null });
+      await Organization.findByIdAndUpdate(targetUser.organizationId, {
+        $pull: { admins: { $in: existingAdminIds } }
+      });
+      
+      console.log(`[DEBUG] ✓ Demoted existing ${roleToAssign}: ${existingAdminIds.length} users`);
+    }
+
+    // ✅ Update user role to specified role (MANAGER or ORG_ADMIN)
     const updatedUser = await User.findByIdAndUpdate(userId, {
-      orgRole: "ORG_ADMIN",
+      orgRole: roleToAssign,
       role: "admin"  // Also update legacy role
     }, { new: true }).select("-password");
 
     // ✅ Add user to organization's admins list
-    await Organization.findByIdAndUpdate(req.user.organizationId, {
+    await Organization.findByIdAndUpdate(targetUser.organizationId, {
       $addToSet: { admins: userId }
     });
 
-    console.log(`[DEBUG] ✓ User promoted to ORG_ADMIN: ${targetUser.email} by ${req.user.email}`);
+    console.log(`[DEBUG] ✓ User promoted to ${roleToAssign}: ${targetUser.email} by ${req.user.email}`);
 
     res.json({
-      message: "User promoted to ORG_ADMIN successfully",
+      message: `User promoted to ${roleToAssign} successfully`,
       user: {
         _id: updatedUser._id,
         name: updatedUser.name,
@@ -348,12 +397,12 @@ export const promoteUserToAdmin = async (req, res) => {
   }
 };
 
-// ✅ NEW: SUPER_ADMIN/MANAGER/ORG_ADMIN: Demote admin to regular user
+// ✅ NEW: SUPER_ADMIN/ORG_ADMIN: Demote admin to regular user
 export const demoteAdminToUser = async (req, res) => {
   try {
-    if (req.user.orgRole !== "MANAGER" && req.user.orgRole !== "ORG_ADMIN" && req.user.orgRole !== "SUPER_ADMIN") {
+    if (req.user.orgRole !== "ORG_ADMIN" && req.user.orgRole !== "SUPER_ADMIN") {
       return res.status(403).json({ 
-        message: "Only MANAGER, ORG_ADMIN or SUPER_ADMIN can demote admins" 
+        message: "Only ORG_ADMIN or SUPER_ADMIN can demote admins" 
       });
     }
 
@@ -368,10 +417,14 @@ export const demoteAdminToUser = async (req, res) => {
       return res.status(400).json({ message: "Cannot demote yourself" });
     }
 
-    // Verify user belongs to same organization
     const targetUser = await User.findById(userId);
-    if (!targetUser || targetUser.organizationId.toString() !== req.user.organizationId.toString()) {
+    if (!targetUser || !verifySameOrganization(req, targetUser)) {
       return res.status(403).json({ message: "User not found in organization" });
+    }
+
+    const organizationId = resolveOrganizationId(req, targetUser);
+    if (!organizationId) {
+      return res.status(400).json({ message: "Organization ID is required" });
     }
 
     // ✅ Update user role to null (regular user, not admin)
@@ -380,7 +433,7 @@ export const demoteAdminToUser = async (req, res) => {
     }, { new: true }).select("-password");
 
     // ✅ Remove user from organization's admins list
-    await Organization.findByIdAndUpdate(req.user.organizationId, {
+    await Organization.findByIdAndUpdate(organizationId, {
       $pull: { admins: userId }
     });
 
@@ -405,12 +458,17 @@ export const demoteAdminToUser = async (req, res) => {
 // ORG_ADMIN: Get all users in organization
 export const getOrganizationUsers = async (req, res) => {
   try {
-    if (req.user.orgRole !== "ORG_ADMIN" && req.user.orgRole !== "SUPER_ADMIN") {
-      return res.status(403).json({ message: "Only ORG_ADMIN can view users" });
+    if (req.user.orgRole !== "ORG_ADMIN" && req.user.orgRole !== "MANAGER" && req.user.orgRole !== "SUPER_ADMIN") {
+      return res.status(403).json({ message: "Only ORG_ADMIN or MANAGER can view users" });
+    }
+
+    const organizationId = resolveOrganizationId(req);
+    if (!organizationId) {
+      return res.status(400).json({ message: "Organization ID is required" });
     }
 
     const users = await User.find({
-      organizationId: req.user.organizationId
+      organizationId
     }).select("-password").sort({ createdAt: -1 });
 
     res.json({
@@ -427,8 +485,8 @@ export const getOrganizationUsers = async (req, res) => {
 // ORG_ADMIN: Set user budget
 export const setUserBudget = async (req, res) => {
   try {
-    if (req.user.orgRole !== "ORG_ADMIN" && req.user.orgRole !== "SUPER_ADMIN") {
-      return res.status(403).json({ message: "Only ORG_ADMIN can set budgets" });
+    if (req.user.orgRole !== "ORG_ADMIN" && req.user.orgRole !== "MANAGER" && req.user.orgRole !== "SUPER_ADMIN") {
+      return res.status(403).json({ message: "Only ORG_ADMIN or MANAGER can set budgets" });
     }
 
     const { userId, budget, budgetPeriod } = req.body;
@@ -444,9 +502,8 @@ export const setUserBudget = async (req, res) => {
     const validPeriods = ["weekly", "monthly", "yearly"];
     const period = budgetPeriod && validPeriods.includes(budgetPeriod) ? budgetPeriod : "monthly";
 
-    // Verify user belongs to same organization
     const targetUser = await User.findById(userId);
-    if (!targetUser || targetUser.organizationId.toString() !== req.user.organizationId.toString()) {
+    if (!targetUser || !verifySameOrganization(req, targetUser)) {
       return res.status(403).json({ message: "Cannot update user from different organization" });
     }
 
@@ -473,17 +530,21 @@ export const setUserBudget = async (req, res) => {
 // ORG_ADMIN: Get organization transactions
 export const getOrganizationTransactions = async (req, res) => {
   try {
-    if (req.user.orgRole !== "ORG_ADMIN" && req.user.orgRole !== "SUPER_ADMIN") {
-      return res.status(403).json({ message: "Only ORG_ADMIN can view all transactions" });
+    if (req.user.orgRole !== "ORG_ADMIN" && req.user.orgRole !== "MANAGER" && req.user.orgRole !== "SUPER_ADMIN") {
+      return res.status(403).json({ message: "Only ORG_ADMIN or MANAGER can view all transactions" });
     }
 
     const { startDate, endDate, userId, category } = req.query;
-    const filter = { organizationId: req.user.organizationId };
+    const organizationId = resolveOrganizationId(req);
+    if (!organizationId) {
+      return res.status(400).json({ message: "Organization ID is required" });
+    }
+
+    const filter = { organizationId };
 
     if (userId) {
-      // Verify user belongs to same organization
       const targetUser = await User.findById(userId);
-      if (!targetUser || targetUser.organizationId.toString() !== req.user.organizationId.toString()) {
+      if (!targetUser || targetUser.organizationId.toString() !== organizationId.toString()) {
         return res.status(403).json({ message: "User not found in organization" });
       }
       filter.userId = userId;
@@ -521,15 +582,20 @@ export const getOrganizationTransactions = async (req, res) => {
 // ORG_ADMIN: Get organization analytics with MongoDB aggregation
 export const getOrganizationAnalytics = async (req, res) => {
   try {
-    if (req.user.orgRole !== "ORG_ADMIN" && req.user.orgRole !== "SUPER_ADMIN") {
-      return res.status(403).json({ message: "Only ORG_ADMIN can view analytics" });
+    if (req.user.orgRole !== "ORG_ADMIN" && req.user.orgRole !== "MANAGER" && req.user.orgRole !== "SUPER_ADMIN") {
+      return res.status(403).json({ message: "Only ORG_ADMIN or MANAGER can view analytics" });
+    }
+
+    const organizationId = resolveOrganizationId(req);
+    if (!organizationId) {
+      return res.status(400).json({ message: "Organization ID is required" });
     }
 
     // ✅ 1. Overall Summary (Total Expenses, Income, Balance)
     const summary = await Transaction.aggregate([
       {
         $match: {
-          organizationId: req.user.organizationId
+          organizationId
         }
       },
       {
@@ -555,7 +621,7 @@ export const getOrganizationAnalytics = async (req, res) => {
     const categoryBreakdown = await Transaction.aggregate([
       {
         $match: {
-          organizationId: req.user.organizationId,
+          organizationId,
           type: "expense"
         }
       },
@@ -587,7 +653,7 @@ export const getOrganizationAnalytics = async (req, res) => {
     const monthlyTrend = await Transaction.aggregate([
       {
         $match: {
-          organizationId: req.user.organizationId
+          organizationId
         }
       },
       {
@@ -632,7 +698,7 @@ export const getOrganizationAnalytics = async (req, res) => {
     const userBreakdown = await Transaction.aggregate([
       {
         $match: {
-          organizationId: req.user.organizationId
+          organizationId
         }
       },
       {
@@ -696,7 +762,7 @@ export const getOrganizationAnalytics = async (req, res) => {
 
     // ✅ 5. Get total users
     const totalUsers = await User.countDocuments({
-      organizationId: req.user.organizationId
+      organizationId
     });
 
     // ✅ Return structured JSON for charts
@@ -727,8 +793,8 @@ export const getOrganizationAnalytics = async (req, res) => {
 // ORG_ADMIN: Remove user from organization
 export const removeUserFromOrganization = async (req, res) => {
   try {
-    if (req.user.orgRole !== "ORG_ADMIN" && req.user.orgRole !== "SUPER_ADMIN") {
-      return res.status(403).json({ message: "Only ORG_ADMIN can remove users" });
+    if (req.user.orgRole !== "ORG_ADMIN" && req.user.orgRole !== "MANAGER" && req.user.orgRole !== "SUPER_ADMIN") {
+      return res.status(403).json({ message: "Only ORG_ADMIN or MANAGER can remove users" });
     }
 
     const { userId } = req.body;
@@ -738,12 +804,13 @@ export const removeUserFromOrganization = async (req, res) => {
     }
 
     const targetUser = await User.findById(userId);
-    if (!targetUser || targetUser.organizationId.toString() !== req.user.organizationId.toString()) {
+    const organizationId = resolveOrganizationId(req, targetUser);
+    if (!targetUser || !verifySameOrganization(req, targetUser)) {
       return res.status(403).json({ message: "Cannot remove user from different organization" });
     }
 
     // Remove user from organization
-    await Organization.findByIdAndUpdate(req.user.organizationId, {
+    await Organization.findByIdAndUpdate(organizationId, {
       $pull: { users: userId, admins: userId }
     });
 

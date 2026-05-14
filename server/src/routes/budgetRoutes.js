@@ -23,8 +23,8 @@ router.get("/history", getBudgetHistory);
 // Validate if transaction would exceed budget
 router.post("/validate", validateTransaction);
 
-// ORG_ADMIN only routes
-router.get("/organization", authorize(["ORG_ADMIN", "SUPER_ADMIN"]), getOrganizationBudgetStatus);
-router.post("/set-user-budget", authorize(["ORG_ADMIN", "SUPER_ADMIN"]), setUserBudget);
+// ORG_ADMIN / MANAGER routes
+router.get("/organization", authorize(["ORG_ADMIN", "MANAGER", "SUPER_ADMIN"]), getOrganizationBudgetStatus);
+router.post("/set-user-budget", authorize(["ORG_ADMIN", "MANAGER", "SUPER_ADMIN"]), setUserBudget);
 
 export default router;

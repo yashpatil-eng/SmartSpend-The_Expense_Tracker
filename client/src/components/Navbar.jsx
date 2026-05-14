@@ -29,6 +29,7 @@ const Navbar = () => {
 
   const getRoleBadge = () => {
     if (user?.orgRole === "SUPER_ADMIN") return "👑 SUPER_ADMIN";
+    if (user?.orgRole === "MANAGER") return "⭐ MANAGER";
     if (user?.orgRole === "ORG_ADMIN") return "🔧 ORG_ADMIN";
     return null;
   };
@@ -46,7 +47,7 @@ const Navbar = () => {
                 <>
                   <Link className="text-sm text-white transition hover:text-gray-300" to="/super-admin">Super Admin</Link>
                 </>
-              ) : user.orgRole === "ORG_ADMIN" ? (
+              ) : user.orgRole === "MANAGER" || user.orgRole === "ORG_ADMIN" ? (
                 <>
                   <Link className="text-sm text-white transition hover:text-gray-300" to="/org-admin">Organization</Link>
                 </>
