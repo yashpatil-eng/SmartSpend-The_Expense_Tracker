@@ -6,7 +6,7 @@ import AdminRoute from "./components/AdminRoute";
 import OrganizationRoute from "./components/OrganizationRoute";
 import { useAuth } from "./hooks/useAuth";
 import DashboardPage from "./pages/DashboardPage";
-import LandingPage from "./pages/LandingPage";
+import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import RegisterPage from "./pages/RegisterPage";
@@ -53,7 +53,7 @@ const App = () => {
     <div className="app-bg">
       {showAppNavbar ? <Navbar /> : null}
       <Routes>
-        <Route path="/" element={<LandingPage />} />
+        <Route path="/" element={<HomePage />} />
         <Route path="/login" element={user ? redirectAfterLogin() : <LoginPage />} />
         <Route path="/register" element={user ? redirectAfterLogin() : <RegisterPage />} />
         
