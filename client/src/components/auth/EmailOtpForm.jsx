@@ -9,26 +9,31 @@ const EmailOtpForm = ({
   onVerifyEmailOtp,
   sendingEmailOtp,
   verifyingEmailOtp,
-  emailOtpSent
+  emailOtpSent,
+  showEmailInput = true
 }) => (
   <div className="space-y-3">
-    <input
-      className="field-input"
-      type="email"
-      placeholder="Email Address"
-      value={email}
-      onChange={(e) => onEmailChange(e.target.value)}
-      required
-    />
-    <button
-      type="button"
-      disabled={sendingEmailOtp}
-      onClick={onSendEmailOtp}
-      className="btn-secondary w-full"
-    >
-      {sendingEmailOtp ? <LoadingSpinner /> : null}
-      Send Verification Email
-    </button>
+    {showEmailInput && !emailOtpSent && (
+      <>
+        <input
+          className="field-input"
+          type="email"
+          placeholder="Email Address"
+          value={email}
+          onChange={(e) => onEmailChange(e.target.value)}
+          required
+        />
+        <button
+          type="button"
+          disabled={sendingEmailOtp}
+          onClick={onSendEmailOtp}
+          className="btn-secondary w-full"
+        >
+          {sendingEmailOtp ? <LoadingSpinner /> : null}
+          Send Verification Email
+        </button>
+      </>
+    )}
     {emailOtpSent && (
       <>
         <input
@@ -48,6 +53,18 @@ const EmailOtpForm = ({
           {verifyingEmailOtp ? <LoadingSpinner /> : null}
           Verify Email
         </button>
+        {showEmailInput && (
+          <button
+            type="button"
+            onClick={() => {
+              // Reset to email input mode
+              onOtpChange("");
+            }}
+            className="btn-secondary w-full text-sm"
+          >
+            Change Email
+          </button>
+        )}
       </>
     )}
   </div>
