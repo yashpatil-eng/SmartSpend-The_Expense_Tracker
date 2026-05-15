@@ -20,6 +20,10 @@ const userSchema = new mongoose.Schema(
     gstNumber: { type: String, trim: true },
     googleId: { type: String, unique: true, sparse: true },
     avatar: { type: String, trim: true },
+    // Email verification fields
+    emailVerified: { type: Boolean, default: false },
+    emailVerificationToken: { type: String },
+    emailVerificationExpires: { type: Date },
     preferences: {
       language: { type: String, default: "en" }
     },

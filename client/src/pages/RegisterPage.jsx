@@ -6,13 +6,14 @@ import AuthOptionButton from "../components/auth/AuthOptionButton";
 import AuthToast from "../components/auth/AuthToast";
 import LoadingSpinner from "../components/auth/LoadingSpinner";
 import MobileOtpForm from "../components/auth/MobileOtpForm";
+import EmailOtpForm from "../components/auth/EmailOtpForm";
 import RoleSelector from "../components/auth/RoleSelector";
 import JoinOrganizationModal from "../components/auth/JoinOrganizationModal";
 import { OrganizationSignupFields, PersonalSignupFields } from "../components/auth/SignupFormSections";
 import { useAuth } from "../hooks/useAuth";
 
 const RegisterPage = () => {
-  const { register, loginWithGoogle, sendOtp, verifyOtp, refreshUser } = useAuth();
+  const { register, loginWithGoogle, sendOtp, verifyOtp, sendEmailOtp, verifyEmailOtp, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [method, setMethod] = useState("email");
   const [accountRole, setAccountRole] = useState("personal");
@@ -27,8 +28,8 @@ const RegisterPage = () => {
     adminSecret: ""
   });
   const [otp, setOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [loading, setLoading] = useState({ email: false, google: false, otp: false, verifyOtp: false });
+  const [emailOtpSent, setEmailOtpSent] = useState(false);
+  const [loading, setLoading] = useState({ email: false, google: false, otp: false, verifyOtp: false, sendEmailOtp: false, verifyEmailOtp: false });
   const [toast, setToast] = useState({ type: "", message: "" });
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [registeredUser, setRegisteredUser] = useState(null);
@@ -129,6 +130,52 @@ const RegisterPage = () => {
     }
   };
 
+  const handleSendEmailOtp = async () => {
+    if (!form.email) {
+      showToast("error", "Please enter your email address");
+      return;
+    }
+
+    setLoading((prev) => ({ ...prev, sendEmailOtp: true }));
+    try {
+      await sendEmailOtp(form.email);
+      setEmailOtpSent(true);
+      showToast("success", "Verification email sent! Check your inbox.");
+    } catch (err) {
+      showToast("error", err.response?.data?.message || "Failed to send verification email");
+    } finally {
+      setLoading((prev) => ({ ...prev, sendEmailOtp: false }));
+    }
+  };
+
+  const handleVerifyEmailOtp = async () => {
+    if (!otp || otp.length !== 6) {
+      showToast("error", "Please enter a valid 6-digit code");
+      return;
+    }
+
+    setLoading((prev) => ({ ...prev, verifyEmailOtp: true }));
+    try {
+      const user = await verifyEmailOtp({
+        email: form.email,
+        otp,
+        accountRole,
+        name: accountRole === "organization" ? form.ownerName : form.name,
+        ownerName: form.ownerName,
+        organizationName: form.organizationName,
+        mobile: form.mobile || undefined,
+        gstNumber: form.gstNumber,
+        password: form.password
+      });
+      showToast("success", "Email verified and account created!");
+      onAuthSuccess(user);
+    } catch (err) {
+      showToast("error", err.response?.data?.message || "Email verification failed");
+    } finally {
+      setLoading((prev) => ({ ...prev, verifyEmailOtp: false }));
+    }
+  };
+
   return (
     <>
       <div className="surface-card mx-auto mt-10 max-w-md p-6">
@@ -140,6 +187,7 @@ const RegisterPage = () => {
         <div className="mt-3 space-y-2">
           <AuthOptionButton label="Continue with Google" icon="G" active={method === "google"} onClick={() => setMethod("google")} />
           <AuthOptionButton label="Continue with Mobile Number" icon={<Smartphone size={16} />} active={method === "mobile"} onClick={() => setMethod("mobile")} />
+          <AuthOptionButton label="Continue with Email Verification" icon={<Mail size={16} />} active={method === "email-verify"} onClick={() => setMethod("email-verify")} />
           <AuthOptionButton label="Continue with Email" icon={<Mail size={16} />} active={method === "email"} onClick={() => setMethod("email")} />
         </div>
         <div className="my-4 flex items-center gap-3 text-xs text-gray-400">
@@ -192,6 +240,35 @@ const RegisterPage = () => {
               otpSent={otpSent}
               sendingOtp={loading.otp}
               verifyingOtp={loading.verifyOtp}
+            />
+          </div>
+        ) : null}
+        {method === "email-verify" ? (
+          <div className="space-y-3">
+            {accountRole === "personal" ? (
+              <PersonalSignupFields form={form} onChange={(key, value) => setForm((p) => ({ ...p, [key]: value }))} />
+            ) : (
+              <OrganizationSignupFields form={form} onChange={(key, value) => setForm((p) => ({ ...p, [key]: value }))} />
+            )}
+            <input
+              className="field-input"
+              type="password"
+              placeholder="Password"
+              value={form.password}
+              onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
+              required
+              minLength={6}
+            />
+            <EmailOtpForm
+              email={form.email}
+              otp={otp}
+              onEmailChange={(value) => setForm((p) => ({ ...p, email: value }))}
+              onOtpChange={setOtp}
+              onSendEmailOtp={handleSendEmailOtp}
+              onVerifyEmailOtp={handleVerifyEmailOtp}
+              sendingEmailOtp={loading.sendEmailOtp}
+              verifyingEmailOtp={loading.verifyEmailOtp}
+              emailOtpSent={emailOtpSent}
             />
           </div>
         ) : null}

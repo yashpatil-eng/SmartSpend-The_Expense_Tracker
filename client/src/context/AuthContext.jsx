@@ -61,13 +61,25 @@ export const AuthProvider = ({ children }) => {
     return response.data.user;
   };
 
+  const sendEmailOtp = async (email) => {
+    const response = await api.post("/auth/send-email-otp", { email });
+    return response.data;
+  };
+
+  const verifyEmailOtp = async (payload) => {
+    const response = await api.post("/auth/verify-email-otp", payload);
+    localStorage.setItem("smartspend_token", response.data.token);
+    setUser(response.data.user);
+    return response.data.user;
+  };
+
   const logout = () => {
     localStorage.removeItem("smartspend_token");
     setUser(null);
   };
 
   const value = useMemo(
-    () => ({ user, loading, login, register, loginWithGoogle, sendOtp, verifyOtp, logout, refreshUser: loadUser }),
+    () => ({ user, loading, login, register, loginWithGoogle, sendOtp, verifyOtp, sendEmailOtp, verifyEmailOtp, logout, refreshUser: loadUser }),
     [user, loading]
   );
 

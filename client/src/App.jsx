@@ -10,6 +10,7 @@ import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import RegisterPage from "./pages/RegisterPage";
+import VerifyEmailOtpPage from "./pages/VerifyEmailOtpPage";
 import Settings from "./pages/Settings";
 import Analytics from "./pages/Analytics";
 import AIInsights from "./pages/AIInsights";
@@ -56,6 +57,7 @@ const App = () => {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={user ? redirectAfterLogin() : <LoginPage />} />
         <Route path="/register" element={user ? redirectAfterLogin() : <RegisterPage />} />
+        <Route path="/verify-email" element={user ? redirectAfterLogin() : <VerifyEmailOtpPage />} />
         
         {/* Multi-tenant routes */}
         <Route path="/join-organization" element={<ProtectedRoute><JoinOrganization /></ProtectedRoute>} />
