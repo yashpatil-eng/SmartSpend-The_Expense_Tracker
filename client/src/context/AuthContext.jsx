@@ -49,13 +49,44 @@ export const AuthProvider = ({ children }) => {
     return response.data.user;
   };
 
+<<<<<<< HEAD
+=======
+  const sendOtp = async (mobile) => {
+    const response = await api.post("/auth/send-otp", { mobile });
+    return response.data;
+  };
+
+  const verifyOtp = async (payload) => {
+    const response = await api.post("/auth/verify-otp", payload);
+    localStorage.setItem("smartspend_token", response.data.token);
+    setUser(response.data.user);
+    return response.data.user;
+  };
+
+  const sendEmailOtp = async (email) => {
+    const response = await api.post("/auth/send-email-otp", { email });
+    return response.data;
+  };
+
+  const verifyEmailOtp = async (payload) => {
+    const response = await api.post("/auth/verify-email-otp", payload);
+    localStorage.setItem("smartspend_token", response.data.token);
+    setUser(response.data.user);
+    return response.data.user;
+  };
+
+>>>>>>> 41b76b951fba95f6d9dbdbd747ff0db1e2305ec3
   const logout = () => {
     localStorage.removeItem("smartspend_token");
     setUser(null);
   };
 
   const value = useMemo(
+<<<<<<< HEAD
     () => ({ user, loading, login, register, loginWithGoogle, logout, refreshUser: loadUser }),
+=======
+    () => ({ user, loading, login, register, loginWithGoogle, sendOtp, verifyOtp, sendEmailOtp, verifyEmailOtp, logout, refreshUser: loadUser }),
+>>>>>>> 41b76b951fba95f6d9dbdbd747ff0db1e2305ec3
     [user, loading]
   );
 

@@ -5,13 +5,22 @@ import { Link, useNavigate } from "react-router-dom";
 import AuthOptionButton from "../components/auth/AuthOptionButton";
 import AuthToast from "../components/auth/AuthToast";
 import LoadingSpinner from "../components/auth/LoadingSpinner";
+<<<<<<< HEAD
+=======
+import MobileOtpForm from "../components/auth/MobileOtpForm";
+import EmailOtpForm from "../components/auth/EmailOtpForm";
+>>>>>>> 41b76b951fba95f6d9dbdbd747ff0db1e2305ec3
 import RoleSelector from "../components/auth/RoleSelector";
 import JoinOrganizationModal from "../components/auth/JoinOrganizationModal";
 import { OrganizationSignupFields, PersonalSignupFields } from "../components/auth/SignupFormSections";
 import { useAuth } from "../hooks/useAuth";
 
 const RegisterPage = () => {
+<<<<<<< HEAD
   const { register, loginWithGoogle } = useAuth();
+=======
+  const { register, loginWithGoogle, sendOtp, verifyOtp, sendEmailOtp, verifyEmailOtp, refreshUser } = useAuth();
+>>>>>>> 41b76b951fba95f6d9dbdbd747ff0db1e2305ec3
   const navigate = useNavigate();
   const [method, setMethod] = useState("email");
   const [accountRole, setAccountRole] = useState("personal");
@@ -24,7 +33,13 @@ const RegisterPage = () => {
     gstNumber: "",
     adminSecret: ""
   });
+<<<<<<< HEAD
   const [loading, setLoading] = useState({ email: false, google: false });
+=======
+  const [otp, setOtp] = useState("");
+  const [emailOtpSent, setEmailOtpSent] = useState(false);
+  const [loading, setLoading] = useState({ email: false, google: false, otp: false, verifyOtp: false, sendEmailOtp: false, verifyEmailOtp: false });
+>>>>>>> 41b76b951fba95f6d9dbdbd747ff0db1e2305ec3
   const [toast, setToast] = useState({ type: "", message: "" });
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [registeredUser, setRegisteredUser] = useState(null);
@@ -58,8 +73,21 @@ const RegisterPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading((prev) => ({ ...prev, email: true }));
+    
+    // Validate required fields
+    if (!form.email || !form.password || !form.name) {
+      showToast("error", "Please fill in all required fields");
+      return;
+    }
+
+    if (form.password.length < 6) {
+      showToast("error", "Password must be at least 6 characters");
+      return;
+    }
+
+    setLoading((prev) => ({ ...prev, sendEmailOtp: true }));
     try {
+<<<<<<< HEAD
       const payload = {
         accountRole,
         email: form.email,
@@ -72,10 +100,15 @@ const RegisterPage = () => {
       const user = await register(payload);
       showToast("success", "Account created successfully");
       onAuthSuccess(user);
+=======
+      await sendEmailOtp(form.email);
+      setEmailOtpSent(true);
+      showToast("success", "Verification email sent! Please check your inbox.");
+>>>>>>> 41b76b951fba95f6d9dbdbd747ff0db1e2305ec3
     } catch (err) {
-      showToast("error", err.response?.data?.message || "Registration failed");
+      showToast("error", err.response?.data?.message || "Failed to send verification email");
     } finally {
-      setLoading((prev) => ({ ...prev, email: false }));
+      setLoading((prev) => ({ ...prev, sendEmailOtp: false }));
     }
   };
 
@@ -92,6 +125,87 @@ const RegisterPage = () => {
     }
   };
 
+<<<<<<< HEAD
+=======
+  const handleSendOtp = async () => {
+    try {
+      setLoading((prev) => ({ ...prev, otp: true }));
+      const response = await sendOtp(form.mobile);
+      setOtpSent(true);
+      showToast("success", "OTP sent successfully");
+    } catch (err) {
+      showToast("error", err.response?.data?.message || "Failed to send OTP");
+    } finally {
+      setLoading((prev) => ({ ...prev, otp: false }));
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    try {
+      setLoading((prev) => ({ ...prev, verifyOtp: true }));
+      const user = await verifyOtp({
+        mobile: form.mobile,
+        otp,
+        accountRole,
+        email: form.email || undefined,
+        name: accountRole === "organization" ? form.ownerName : form.name
+      });
+      showToast("success", "Mobile signup successful");
+      onAuthSuccess(user);
+    } catch (err) {
+      showToast("error", err.response?.data?.message || "OTP verification failed");
+    } finally {
+      setLoading((prev) => ({ ...prev, verifyOtp: false }));
+    }
+  };
+
+  const handleSendEmailOtp = async () => {
+    if (!form.email) {
+      showToast("error", "Please enter your email address");
+      return;
+    }
+
+    setLoading((prev) => ({ ...prev, sendEmailOtp: true }));
+    try {
+      await sendEmailOtp(form.email);
+      setEmailOtpSent(true);
+      showToast("success", "Verification email sent! Check your inbox.");
+    } catch (err) {
+      showToast("error", err.response?.data?.message || "Failed to send verification email");
+    } finally {
+      setLoading((prev) => ({ ...prev, sendEmailOtp: false }));
+    }
+  };
+
+  const handleVerifyEmailOtp = async () => {
+    if (!otp || otp.length !== 6) {
+      showToast("error", "Please enter a valid 6-digit code");
+      return;
+    }
+
+    setLoading((prev) => ({ ...prev, verifyEmailOtp: true }));
+    try {
+      const user = await verifyEmailOtp({
+        email: form.email,
+        otp,
+        accountRole,
+        name: accountRole === "organization" ? form.ownerName : form.name,
+        ownerName: form.ownerName,
+        organizationName: form.organizationName,
+        mobile: form.mobile || undefined,
+        gstNumber: form.gstNumber,
+        password: form.password
+      });
+      showToast("success", "Email verified and account created!");
+      onAuthSuccess(user);
+    } catch (err) {
+      showToast("error", err.response?.data?.message || "Email verification failed");
+    } finally {
+      setLoading((prev) => ({ ...prev, verifyEmailOtp: false }));
+    }
+  };
+
+>>>>>>> 41b76b951fba95f6d9dbdbd747ff0db1e2305ec3
   return (
     <>
       <div className="surface-card mx-auto mt-10 max-w-md p-6">
@@ -116,7 +230,7 @@ const RegisterPage = () => {
           </div>
         ) : null}
         {method === "email" ? (
-          <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="space-y-3">
             {accountRole === "personal" ? (
               <PersonalSignupFields form={form} onChange={(key, value) => setForm((p) => ({ ...p, [key]: value }))} />
             ) : (
@@ -131,11 +245,36 @@ const RegisterPage = () => {
               required
               minLength={6}
             />
-            <button disabled={loading.email} className="btn-primary w-full">
-              {loading.email ? <LoadingSpinner /> : null}
-              Create Account
-            </button>
-          </form>
+            
+            {!emailOtpSent ? (
+              <button
+                onClick={handleSubmit}
+                disabled={loading.sendEmailOtp}
+                className="btn-primary w-full"
+              >
+                {loading.sendEmailOtp ? <LoadingSpinner /> : null}
+                Create Account
+              </button>
+            ) : (
+              <>
+                <div className="text-center text-sm text-gray-400 mb-4">
+                  We've sent a verification code to <strong>{form.email}</strong>
+                </div>
+                <EmailOtpForm
+                  email={form.email}
+                  otp={otp}
+                  onEmailChange={(value) => setForm((p) => ({ ...p, email: value }))}
+                  onOtpChange={setOtp}
+                  onSendEmailOtp={handleSubmit}
+                  onVerifyEmailOtp={handleVerifyEmailOtp}
+                  sendingEmailOtp={loading.sendEmailOtp}
+                  verifyingEmailOtp={loading.verifyEmailOtp}
+                  emailOtpSent={emailOtpSent}
+                  showEmailInput={false}
+                />
+              </>
+            )}
+          </div>
         ) : null}
         <p className="mt-4 text-sm text-gray-400">Already have an account? <Link to="/login" className="text-white underline-offset-2 hover:underline">Login</Link></p>
       </div>

@@ -3,8 +3,20 @@ import { OAuth2Client } from "google-auth-library";
 import User from "../models/User.js";
 import { generateToken } from "../utils/token.js";
 import { isSuperAdminEmail } from "../config/admins.js";
+import { sendVerificationEmail } from "../services/emailService.js";
 
 const googleClient = process.env.GOOGLE_CLIENT_ID ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID) : null;
+<<<<<<< HEAD
+=======
+const otpStore = new Map();
+const emailOtpStore = new Map();
+const twilioClient =
+  process.env.TWILIO_ACCOUNT_SID?.startsWith("AC") && process.env.TWILIO_AUTH_TOKEN
+    ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
+    : null;
+
+const normalizeMobile = (mobile = "") => mobile.replace(/\D/g, "");
+>>>>>>> 41b76b951fba95f6d9dbdbd747ff0db1e2305ec3
 
 const sanitizeUser = (user) => {
   const sanitized = {
@@ -232,6 +244,242 @@ export const googleAuth = async (req, res) => {
   }
 };
 
+<<<<<<< HEAD
+=======
+export const sendOtp = async (req, res) => {
+  try {
+    const normalizedMobile = normalizeMobile(req.body.mobile);
+    if (!normalizedMobile || normalizedMobile.length < 10) {
+      return res.status(400).json({ message: "Please enter a valid mobile number" });
+    }
+
+    const otp = (Math.floor(100000 + Math.random() * 900000)).toString();
+    const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
+    const otpTtlMs = Number(process.env.OTP_TTL_MS || 5 * 60 * 1000);
+
+    otpStore.set(normalizedMobile, {
+      otpHash,
+      expiresAt: Date.now() + otpTtlMs
+    });
+
+    if (twilioClient && process.env.TWILIO_PHONE_NUMBER) {
+      try {
+        console.log(`\n📱 Sending OTP to: +${normalizedMobile}`);
+        console.log(`📤 From: ${process.env.TWILIO_PHONE_NUMBER}`);
+        const message = await twilioClient.messages.create({
+          to: `+${normalizedMobile}`,
+          from: process.env.TWILIO_PHONE_NUMBER,
+          body: `Your SmartSpend OTP is ${otp}. It expires in ${Math.floor(otpTtlMs / 60000)} minutes.`
+        });
+        console.log(`✅ OTP sent successfully to ${normalizedMobile} (SID: ${message.sid})\n`);
+      } catch (smsError) {
+        console.error("\n❌ Twilio SMS send failed:");
+        console.error("Error Code:", smsError.code);
+        console.error("Error Message:", smsError.message);
+        console.error("Full Error:", JSON.stringify(smsError, null, 2));
+        console.error("To Number:", `+${normalizedMobile}`);
+        console.error("From Number:", process.env.TWILIO_PHONE_NUMBER, "\n");
+        return res.status(500).json({ message: "Failed to send OTP via SMS: " + smsError.message });
+      }
+    } else {
+      console.log(`\n🔔 DEVELOPMENT MODE - OTP for ${normalizedMobile}: ${otp}\n`);
+      if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
+        console.warn("⚠️  Twilio credentials not configured. OTP will only be logged to console.");
+      }
+    }
+
+    const response = { message: "OTP sent successfully" };
+    if (process.env.NODE_ENV !== "production") {
+      response.devOtp = otp;
+    }
+
+    return res.json(response);
+  } catch (error) {
+    console.error("Send OTP error:", error);
+    res.status(500).json({ message: "Failed to send OTP. Please try again." });
+  }
+};
+
+export const verifyOtp = async (req, res) => {
+  try {
+    const normalizedMobile = normalizeMobile(req.body.mobile);
+    const otp = req.body.otp;
+    const accountRole = req.body.accountRole || "personal";
+    const email = req.body.email;
+    const name = req.body.name;
+
+    const otpRecord = otpStore.get(normalizedMobile);
+    if (!otpRecord) {
+      return res.status(400).json({ message: "OTP not found. Please request a new OTP." });
+    }
+    if (Date.now() > otpRecord.expiresAt) {
+      otpStore.delete(normalizedMobile);
+      return res.status(400).json({ message: "OTP has expired. Please request a new OTP." });
+    }
+
+    const incomingHash = crypto.createHash("sha256").update(String(otp || "")).digest("hex");
+    if (incomingHash !== otpRecord.otpHash) {
+      return res.status(401).json({ message: "Invalid OTP" });
+    }
+    otpStore.delete(normalizedMobile);
+
+    let user = await User.findOne({ mobile: normalizedMobile });
+
+    if (!user) {
+      if (email) {
+        user = await User.findOne({ email: email.toLowerCase() });
+      }
+
+      if (user) {
+        user.mobile = normalizedMobile;
+        if (!user.accountRole) user.accountRole = accountRole;
+        await user.save();
+      } else {
+        const normalizedEmail = email ? email.toLowerCase() : undefined;
+        // ✅ SECURITY: Role ALWAYS null (no admin) for new OTP signups
+        // Admin cannot be created through OTP
+        user = await User.create({
+          name: name || `User ${normalizedMobile.slice(-4)}`,
+          email: normalizedEmail,
+          mobile: normalizedMobile,
+          orgRole: null, // ✅ Always null - no admin role for OTP accounts
+          accountRole
+        });
+      }
+    }
+
+    return res.json({
+      user: sanitizeUser(user),
+      token: generateToken(user._id, "user") // ✅ Always "user" role
+    });
+  } catch (error) {
+    console.error("Verify OTP error:", error);
+    res.status(500).json({ message: "OTP verification failed. Please try again." });
+  }
+};
+
+export const sendEmailOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    const normalizedEmail = email.toLowerCase();
+
+    // Check if user already exists and is verified
+    const existingUser = await User.findOne({ email: normalizedEmail });
+    if (existingUser && existingUser.emailVerified) {
+      return res.status(409).json({ message: "Email already verified. Please login instead." });
+    }
+
+    const otp = (Math.floor(100000 + Math.random() * 900000)).toString();
+    const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
+    const otpTtlMs = Number(process.env.OTP_TTL_MS || 5 * 60 * 1000);
+
+    emailOtpStore.set(normalizedEmail, {
+      otpHash,
+      expiresAt: Date.now() + otpTtlMs
+    });
+
+    try {
+      await sendVerificationEmail(normalizedEmail, otp);
+      console.log(`✅ Email OTP sent successfully to ${normalizedEmail}`);
+    } catch (emailError) {
+      console.error("❌ Email send failed:", emailError);
+      return res.status(500).json({ message: "Failed to send verification email. Please try again." });
+    }
+
+    const response = { message: "Verification email sent successfully" };
+    if (process.env.NODE_ENV !== "production") {
+      response.devOtp = otp;
+    }
+    return res.json(response);
+  } catch (error) {
+    console.error("Send email OTP error:", error);
+    res.status(500).json({ message: "Failed to send verification email. Please try again." });
+  }
+};
+
+export const verifyEmailOtp = async (req, res) => {
+  try {
+    const { email, otp, accountRole, name, ownerName, organizationName, mobile, gstNumber, password } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({ message: "Email and OTP are required" });
+    }
+
+    const normalizedEmail = email.toLowerCase();
+    const otpRecord = emailOtpStore.get(normalizedEmail);
+
+    if (!otpRecord) {
+      return res.status(400).json({ message: "OTP not found. Please request a new verification email." });
+    }
+
+    if (Date.now() > otpRecord.expiresAt) {
+      emailOtpStore.delete(normalizedEmail);
+      return res.status(400).json({ message: "OTP has expired. Please request a new verification email." });
+    }
+
+    const incomingHash = crypto.createHash("sha256").update(String(otp || "")).digest("hex");
+    if (incomingHash !== otpRecord.otpHash) {
+      return res.status(401).json({ message: "Invalid OTP" });
+    }
+
+    emailOtpStore.delete(normalizedEmail);
+
+    // Check if user already exists
+    let user = await User.findOne({ email: normalizedEmail });
+
+    if (user) {
+      // Update existing user with verification
+      user.emailVerified = true;
+      user.emailVerificationToken = undefined;
+      user.emailVerificationExpires = undefined;
+      await user.save();
+    } else {
+      // Create new user
+      const normalizedMobile = mobile ? normalizeMobile(mobile) : undefined;
+
+      if (normalizedMobile) {
+        const existingByMobile = await User.findOne({ mobile: normalizedMobile });
+        if (existingByMobile) {
+          return res.status(409).json({ message: "Mobile number already in use" });
+        }
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const resolvedName = accountRole === "organization" ? ownerName : name;
+
+      user = await User.create({
+        name: resolvedName,
+        email: normalizedEmail,
+        password: hashedPassword,
+        mobile: normalizedMobile,
+        accountRole: accountRole,
+        orgRole: null,
+        organizationName: accountRole === "organization" ? organizationName : undefined,
+        gstNumber: accountRole === "organization" ? gstNumber : undefined,
+        emailVerified: true
+      });
+    }
+
+    return res.status(201).json({
+      user: sanitizeUser(user),
+      token: generateToken(user._id, "user")
+    });
+  } catch (error) {
+    console.error("Verify email OTP error:", error);
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern)[0];
+      const message = `${field.charAt(0).toUpperCase() + field.slice(1)} already in use`;
+      return res.status(409).json({ message });
+    }
+    res.status(500).json({ message: "Email verification failed. Please try again." });
+  }
+};
+
+>>>>>>> 41b76b951fba95f6d9dbdbd747ff0db1e2305ec3
 export const me = async (req, res) => {
   try {
     const user = await User.findById(req.user._id).populate("organizationId", "name orgCode");
