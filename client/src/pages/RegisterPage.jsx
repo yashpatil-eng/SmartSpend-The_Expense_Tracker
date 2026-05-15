@@ -5,22 +5,15 @@ import { Link, useNavigate } from "react-router-dom";
 import AuthOptionButton from "../components/auth/AuthOptionButton";
 import AuthToast from "../components/auth/AuthToast";
 import LoadingSpinner from "../components/auth/LoadingSpinner";
-<<<<<<< HEAD
-=======
 import MobileOtpForm from "../components/auth/MobileOtpForm";
 import EmailOtpForm from "../components/auth/EmailOtpForm";
->>>>>>> 41b76b951fba95f6d9dbdbd747ff0db1e2305ec3
 import RoleSelector from "../components/auth/RoleSelector";
 import JoinOrganizationModal from "../components/auth/JoinOrganizationModal";
 import { OrganizationSignupFields, PersonalSignupFields } from "../components/auth/SignupFormSections";
 import { useAuth } from "../hooks/useAuth";
 
 const RegisterPage = () => {
-<<<<<<< HEAD
-  const { register, loginWithGoogle } = useAuth();
-=======
   const { register, loginWithGoogle, sendOtp, verifyOtp, sendEmailOtp, verifyEmailOtp, refreshUser } = useAuth();
->>>>>>> 41b76b951fba95f6d9dbdbd747ff0db1e2305ec3
   const navigate = useNavigate();
   const [method, setMethod] = useState("email");
   const [accountRole, setAccountRole] = useState("personal");
@@ -33,13 +26,9 @@ const RegisterPage = () => {
     gstNumber: "",
     adminSecret: ""
   });
-<<<<<<< HEAD
-  const [loading, setLoading] = useState({ email: false, google: false });
-=======
   const [otp, setOtp] = useState("");
   const [emailOtpSent, setEmailOtpSent] = useState(false);
   const [loading, setLoading] = useState({ email: false, google: false, otp: false, verifyOtp: false, sendEmailOtp: false, verifyEmailOtp: false });
->>>>>>> 41b76b951fba95f6d9dbdbd747ff0db1e2305ec3
   const [toast, setToast] = useState({ type: "", message: "" });
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [registeredUser, setRegisteredUser] = useState(null);
@@ -87,24 +76,9 @@ const RegisterPage = () => {
 
     setLoading((prev) => ({ ...prev, sendEmailOtp: true }));
     try {
-<<<<<<< HEAD
-      const payload = {
-        accountRole,
-        email: form.email,
-        password: form.password,
-        name: form.name,
-        ownerName: form.ownerName,
-        organizationName: form.organizationName,
-        gstNumber: form.gstNumber
-      };
-      const user = await register(payload);
-      showToast("success", "Account created successfully");
-      onAuthSuccess(user);
-=======
       await sendEmailOtp(form.email);
       setEmailOtpSent(true);
       showToast("success", "Verification email sent! Please check your inbox.");
->>>>>>> 41b76b951fba95f6d9dbdbd747ff0db1e2305ec3
     } catch (err) {
       showToast("error", err.response?.data?.message || "Failed to send verification email");
     } finally {
@@ -125,8 +99,6 @@ const RegisterPage = () => {
     }
   };
 
-<<<<<<< HEAD
-=======
   const handleSendOtp = async () => {
     try {
       setLoading((prev) => ({ ...prev, otp: true }));
@@ -205,7 +177,6 @@ const RegisterPage = () => {
     }
   };
 
->>>>>>> 41b76b951fba95f6d9dbdbd747ff0db1e2305ec3
   return (
     <>
       <div className="surface-card mx-auto mt-10 max-w-md p-6">

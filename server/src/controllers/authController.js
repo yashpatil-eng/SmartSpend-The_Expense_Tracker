@@ -1,13 +1,13 @@
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { OAuth2Client } from "google-auth-library";
+import twilio from "twilio";
 import User from "../models/User.js";
 import { generateToken } from "../utils/token.js";
 import { isSuperAdminEmail } from "../config/admins.js";
 import { sendVerificationEmail } from "../services/emailService.js";
 
 const googleClient = process.env.GOOGLE_CLIENT_ID ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID) : null;
-<<<<<<< HEAD
-=======
 const otpStore = new Map();
 const emailOtpStore = new Map();
 const twilioClient =
@@ -16,7 +16,6 @@ const twilioClient =
     : null;
 
 const normalizeMobile = (mobile = "") => mobile.replace(/\D/g, "");
->>>>>>> 41b76b951fba95f6d9dbdbd747ff0db1e2305ec3
 
 const sanitizeUser = (user) => {
   const sanitized = {
@@ -244,8 +243,6 @@ export const googleAuth = async (req, res) => {
   }
 };
 
-<<<<<<< HEAD
-=======
 export const sendOtp = async (req, res) => {
   try {
     const normalizedMobile = normalizeMobile(req.body.mobile);
@@ -478,8 +475,6 @@ export const verifyEmailOtp = async (req, res) => {
     res.status(500).json({ message: "Email verification failed. Please try again." });
   }
 };
-
->>>>>>> 41b76b951fba95f6d9dbdbd747ff0db1e2305ec3
 export const me = async (req, res) => {
   try {
     const user = await User.findById(req.user._id).populate("organizationId", "name orgCode");
