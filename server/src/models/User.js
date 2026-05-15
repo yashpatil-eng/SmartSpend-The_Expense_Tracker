@@ -5,7 +5,6 @@ const userSchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true },
     email: { type: String, unique: true, lowercase: true, trim: true, sparse: true },
     password: { type: String, minlength: 6 },
-    mobile: { type: String, unique: true, sparse: true, trim: true },
     // Account type: personal (regular user) or organization (business user)
     accountRole: { type: String, enum: ["personal", "organization"], default: "personal" },
     
