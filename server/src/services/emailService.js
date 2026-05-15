@@ -1,17 +1,46 @@
+import dotenv from "dotenv";
 import nodemailer from "nodemailer";
+import path from "path";
+import { fileURLToPath } from "url";
 
-const transporter = nodemailer.createTransport({
-  service: process.env.EMAIL_SERVICE || "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
-});
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
+
+const mailUser = process.env.EMAIL_USER?.trim();
+const mailPass = process.env.EMAIL_PASS?.replace(/\s+/g, "");
+const mailFrom = process.env.EMAIL_FROM || mailUser;
+const mailService = process.env.EMAIL_SERVICE?.trim() || "gmail";
+
+if (!mailUser || !mailPass) {
+  throw new Error("Email service credentials are not configured. Set EMAIL_USER and EMAIL_PASS in .env.");
+}
+
+const transporter = nodemailer.createTransport(
+  mailService.toLowerCase() === "gmail"
+    ? {
+        host: "smtp.gmail.com",
+        port: 465,
+        secure: true,
+        auth: {
+          user: mailUser,
+          pass: mailPass
+        }
+      }
+    : {
+        service: mailService,
+        auth: {
+          user: mailUser,
+          pass: mailPass
+        }
+      }
+);
 
 export const sendEmail = async (to, subject, html) => {
   try {
     const mailOptions = {
-      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+      from: mailFrom,
       to,
       subject,
       html
