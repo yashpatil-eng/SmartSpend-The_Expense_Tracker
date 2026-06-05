@@ -43,10 +43,17 @@ export const AuthProvider = ({ children }) => {
   };
 
   const loginWithGoogle = async (credential) => {
-    const response = await api.post("/auth/google", { credential });
-    localStorage.setItem("smartspend_token", response.data.token);
-    setUser(response.data.user);
-    return response.data.user;
+    try {
+      console.log("[AuthContext] Starting Google authentication...");
+      const response = await api.post("/auth/google", { credential });
+      console.log("[AuthContext] Google auth response received:", response.data);
+      localStorage.setItem("smartspend_token", response.data.token);
+      setUser(response.data.user);
+      return response.data.user;
+    } catch (error) {
+      console.error("[AuthContext] Google auth error:", error.response?.data || error.message);
+      throw error;
+    }
   };
 
   const sendOtp = async (mobile) => {

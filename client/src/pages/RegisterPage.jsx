@@ -89,11 +89,16 @@ const RegisterPage = () => {
   const handleGoogleSuccess = async (googleResponse) => {
     try {
       setLoading((prev) => ({ ...prev, google: true }));
+      console.log("[RegisterPage] Received Google response, credential:", googleResponse.credential.substring(0, 50) + "...");
       const user = await loginWithGoogle(googleResponse.credential);
+      console.log("[RegisterPage] Google sign-up successful, user:", user);
       showToast("success", "Google sign-up successful");
       onAuthSuccess(user);
     } catch (err) {
-      showToast("error", err.response?.data?.message || "Google sign-up failed");
+      console.error("[RegisterPage] Google sign-up error:", err);
+      const errorMessage = err.response?.data?.message || err.message || "Google sign-up failed";
+      console.error("[RegisterPage] Error details:", errorMessage);
+      showToast("error", errorMessage);
     } finally {
       setLoading((prev) => ({ ...prev, google: false }));
     }

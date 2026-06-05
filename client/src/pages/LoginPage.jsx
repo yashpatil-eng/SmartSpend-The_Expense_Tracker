@@ -63,11 +63,16 @@ const LoginPage = () => {
   const handleGoogleSuccess = async (googleResponse) => {
     try {
       setLoading((prev) => ({ ...prev, google: true }));
+      console.log("[LoginPage] Received Google response, credential:", googleResponse.credential.substring(0, 50) + "...");
       const user = await loginWithGoogle(googleResponse.credential);
+      console.log("[LoginPage] Google sign-in successful, user:", user);
       showToast("success", "Google sign-in successful");
       onAuthSuccess(user);
     } catch (err) {
-      showToast("error", err.response?.data?.message || "Google sign-in failed");
+      console.error("[LoginPage] Google sign-in error:", err);
+      const errorMessage = err.response?.data?.message || err.message || "Google sign-in failed";
+      console.error("[LoginPage] Error details:", errorMessage);
+      showToast("error", errorMessage);
     } finally {
       setLoading((prev) => ({ ...prev, google: false }));
     }
