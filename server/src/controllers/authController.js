@@ -173,25 +173,26 @@ export const login = async (req, res) => {
 
 export const googleAuth = async (req, res) => {
   try {
-    const requestUrl = `${req.protocol}://${req.get("host")}${req.originalUrl}`;\n    console.log(\"[GOOGLE AUTH] Request URL:\", requestUrl);
-    console.log(\"[GOOGLE AUTH] GOOGLE_CLIENT_ID:\", process.env.GOOGLE_CLIENT_ID ? \"✓ Set\" : \"✗ Missing\");
-    console.log(\"[GOOGLE AUTH] Request body keys:\", Object.keys(req.body));
+const requestUrl = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
+console.log("[GOOGLE AUTH] Request URL:", requestUrl);
+    console.log("[GOOGLE AUTH] GOOGLE_CLIENT_ID:", process.env.GOOGLE_CLIENT_ID ? "✓ Set" : "✗ Missing");
+    console.log("[GOOGLE AUTH] Request body keys:", Object.keys(req.body));
 
     const { credential } = req.body;
     if (!credential) {
-      console.warn(\"[GOOGLE AUTH] Missing credential in request body\");
-      return res.status(400).json({ message: \"Google credential is required\" });
+      console.warn("[GOOGLE AUTH] Missing credential in request body");
+      return res.status(400).json({ message: "Google credential is required" });
     }
 
-    console.log(\"[GOOGLE AUTH] Credential received (length: %d)\", credential.length);
+    console.log("[GOOGLE AUTH] Credential received (length: %d)", credential.length);
 
     if (!process.env.GOOGLE_CLIENT_ID) {
-      console.error(\"[GOOGLE AUTH] GOOGLE_CLIENT_ID environment variable is not set\");
-      return res.status(500).json({ message: \"Server configuration error: GOOGLE_CLIENT_ID not set\" });
+      console.error("[GOOGLE AUTH] GOOGLE_CLIENT_ID environment variable is not set");
+      return res.status(500).json({ message: "Server configuration error: GOOGLE_CLIENT_ID not set" });
     }
 
     const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-    console.log(\"[GOOGLE AUTH] Verifying ID token...\");
+    console.log("[GOOGLE AUTH] Verifying ID token...");
     
     const ticket = await client.verifyIdToken({
       idToken: credential,
@@ -199,82 +200,82 @@ export const googleAuth = async (req, res) => {
     });
     
     const payload = ticket.getPayload();
-    console.log(\"[GOOGLE AUTH] ✓ Token verified successfully\");
-    console.log(\"[GOOGLE AUTH] Payload - Name: %s, Email: %s, Sub: %s\", payload.name, payload.email, payload.sub);
+    console.log("[GOOGLE AUTH] ✓ Token verified successfully");
+    console.log("[GOOGLE AUTH] Payload - Name: %s, Email: %s, Sub: %s", payload.name, payload.email, payload.sub);
 
     if (!payload?.email) {
-      console.warn(\"[GOOGLE AUTH] Google account has no email\");
-      return res.status(400).json({ message: \"Google account email is unavailable\" });
+      console.warn("[GOOGLE AUTH] Google account has no email");
+      return res.status(400).json({ message: "Google account email is unavailable" });
     }
 
     const normalizedEmail = payload.email.toLowerCase();
-    console.log(\"[GOOGLE AUTH] Looking up user by email or googleId: %s\", normalizedEmail);
+    console.log("[GOOGLE AUTH] Looking up user by email or googleId: %s", normalizedEmail);
 
     let user = await User.findOne({
       $or: [{ googleId: payload.sub }, { email: normalizedEmail }]
     });
 
     if (!user) {
-      console.log(\"[GOOGLE AUTH] User not found, creating new user: %s\", normalizedEmail);
+      console.log("[GOOGLE AUTH] User not found, creating new user: %s", normalizedEmail);
       
       // ⚠️ SECURITY: Block admin@gmail.com from Google OAuth signup
-      if (normalizedEmail === \"admin@gmail.com\") {
-        console.warn(\"[GOOGLE AUTH] Blocked Google signup attempt for admin@gmail.com\");
+      if (normalizedEmail === "admin@gmail.com") {
+        console.warn("[GOOGLE AUTH] Blocked Google signup attempt for admin@gmail.com");
         return res.status(400).json({ 
-          message: \"admin@gmail.com cannot be created via OAuth. Use standard login.\" 
+          message: "admin@gmail.com cannot be created via OAuth. Use standard login." 
         });
       }
       
       // ✅ SECURITY: Google users are NEVER SUPER_ADMIN
       // All Google OAuth users are regular users with orgRole=null
       user = await User.create({
-        name: payload.name || payload.email.split(\"@\")[0],
+        name: payload.name || payload.email.split("@")[0],
         email: normalizedEmail,
         googleId: payload.sub,
         avatar: payload.picture,
         orgRole: null, // ✅ Always null - no admin role for OAuth users
-        accountRole: \"personal\"
+        accountRole: "personal"
       });
-      console.log(\"[GOOGLE AUTH] ✓ New Google user created - ID: %s, Email: %s\", user._id, normalizedEmail);
+      console.log("[GOOGLE AUTH] ✓ New Google user created - ID: %s, Email: %s", user._id, normalizedEmail);
     } else {
-      console.log(\"[GOOGLE AUTH] User already exists - ID: %s, Email: %s\", user._id, normalizedEmail);
+      console.log("[GOOGLE AUTH] User already exists - ID: %s, Email: %s", user._id, normalizedEmail);
       let dirty = false;
       if (!user.googleId) {
-        console.log(\"[GOOGLE AUTH] Adding googleId to existing user\");
+        console.log("[GOOGLE AUTH] Adding googleId to existing user");
         user.googleId = payload.sub;
         dirty = true;
       }
       if (!user.avatar && payload.picture) {
-        console.log(\"[GOOGLE AUTH] Adding avatar to existing user\");
+        console.log("[GOOGLE AUTH] Adding avatar to existing user");
         user.avatar = payload.picture;
         dirty = true;
       }
       if (dirty) {
         await user.save();
-        console.log(\"[GOOGLE AUTH] User profile updated and saved\");
+        console.log("[GOOGLE AUTH] User profile updated and saved");
       }
     }
 
     const sanitized = sanitizeUser(user);
-    const token = generateToken(user._id, \"user\");
+    const token = generateToken(user._id, "user");
     
-    console.log(\"[GOOGLE AUTH] ✓ Authentication successful\");
-    console.log(\"[GOOGLE AUTH] Returning user - ID: %s, Email: %s, AccountRole: %s\", user._id, user.email, user.accountRole);
+    console.log("[GOOGLE AUTH] ✓ Authentication successful");
+    console.log("[GOOGLE AUTH] Returning user - ID: %s, Email: %s, AccountRole: %s", user._id, user.email, user.accountRole);
 
     return res.json({
       user: sanitized,
       token: token
     });
   } catch (error) {
-    console.error(\"[GOOGLE AUTH] ✗ Error occurred:\", error.message);
-    if (error.message.includes(\"Failed to fetch\")) {
-      console.error(\"[GOOGLE AUTH] Network error - verify Google OAuth service availability\");
+    console.error("[GOOGLE AUTH] ✗ Error occurred:", error.message);
+    if (error.message.includes("Failed to fetch")) {
+      console.error("[GOOGLE AUTH] Network error - verify Google OAuth service availability");
     }
-    if (error.message.includes(\"Token used too early\")) {
-      console.error(\"[GOOGLE AUTH] Token timing issue - check server clock\");
+    if (error.message.includes("Token used too early")) {
+      console.error("[GOOGLE AUTH] Token timing issue - check server clock");
     }
-    console.error(\"[GOOGLE AUTH] Full error:\", error);
-    res.status(500).json({ message: \"Google authentication failed. Please try again.\" });
+    console.error("[GOOGLE AUTH] Full error:", error);
+    res.status(500).json({ message: "Google authentication failed. Please try again." });
   }
 };
 
